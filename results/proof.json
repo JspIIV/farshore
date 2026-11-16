@@ -1,8 +1,8 @@
 {
   "network": "GenLayer Bradbury",
-  "started": "2026-11-16T12:40:33.227Z",
+  "started": "2026-11-16T13:03:35.336Z",
   "contracts": {
-    "input_settler": "0x87EBa9B7AD9524FA8FFfeFf8FDA0dBfbB6d3a263",
+    "input_settler": "0x1CC9260E285C2C8AC8D2E7102F3978056Ec1d0a8",
     "oracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC",
     "test_usd": "0xd0dD2416Bba75578703532D70674fb6aCAfDEC0e",
     "court": "0x073885844B08A7F482a37666D145D377bf558d33"
@@ -16,13 +16,13 @@
   },
   "orders": {
     "A": {
-      "orderId": "0xbc4d95b86090c7477a6fac4ff9fd8845d86f782db4d75b1f5bceaa3a3ed8400e",
+      "orderId": "0x7461ccd5909bd27c2d290d149f04e82d41458f77ebdfc0cf6fb88a6802b53e99",
       "order": {
         "user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258",
-        "nonce": "1794832838000",
+        "nonce": "1794834219000",
         "originChainId": 4221,
-        "expires": 1794840038,
-        "fillDeadline": 1794836438,
+        "expires": 1794841419,
+        "fillDeadline": 1794837819,
         "inputOracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC",
         "inputs": [
           [
@@ -43,40 +43,40 @@
           }
         ]
       },
-      "open_tx": "0x4be2695eac096e27a9e246fcfcf222287fb42613107306639d05698f50cb3ac2",
-      "far_tx": "dbe305b31726c288b1c100824eb3e557495ab587b715a646add9d486955b12a5",
+      "open_tx": "0x097ff5e60138cc50d5f6c4f4fe376c6eb7619e890b57f74c98995ad3c1670153",
+      "far_tx": "7d2243085eed42e8482dfd732fe43cd6e27d4c5f8fd61e6d3650dd28d5332db0",
       "far": "stellar-testnet",
       "thief_claim": {
-        "id": "0xe53b7aa8a7c6007e54db9d6c882583d545a65613358bc25f82e24bbf7bda309a",
-        "tx": "0xdaec4165b8cf24d69328fc28dcfae43db885c9c47072d3e1b83ab3fc7f739559"
+        "id": "0x26022172dd1d93a552cad5c2476140d641f3fcf89544c649086d80e2afcf86cc",
+        "tx": "0xcf13f807c7549496b0a1148549db12d8db1844ff5b76d4b51d1360b4cdbff27b"
       },
       "fake_claim": {
-        "id": "0x9386f819c5212f36a1cc0876cad142d9ff99ba48d0479255d42cdc15fd19fabc",
-        "tx": "0xf52edd183017bdef7aca23321e10d0e927c4b9aceea5064fd8c80981b32b79d4"
+        "id": "0xbafd85d8ad34feb5f95c24ba7bb1fb04630ecfe8b0c3ad1f8c21e75a87d26e67",
+        "tx": "0xa754353f866babd7916ad89c665844b3341b9efc06049a3d8488345a7d9ed5f0"
       },
-      "thief_round": "0x74347a3d54b65dd3f12c0299f20aa113aac0aaf1af80547b0b96d6a08b73f7a4",
+      "thief_round": "0x5688530eced1a360dbdd9261bf92c9caf2ba1599b549e89e3bbe88dcf31bd7f7",
       "thief_verdict": "NOT_FILLED",
       "thief_why": "the memo binds this payment to another order or another solver",
       "claim": {
-        "id": "0x0ad582edc87c8179c5f258d0fdde335b9ec3be5d4e6e3613e565228919a5085d",
-        "tx": "0x8b49be3bd25013345026ebac64f8217b4d8091226dd6c058c46c93ef1a6bb88e"
+        "id": "0xadd3b4141fc07910c5395391522a7ec1787a4ce8b1d8aeeb54203f86fdf99349",
+        "tx": "0x1d3ec94e02f111f30e3727d334c45bcc45edddc8fe6e3729ad61ecdf50407fcf"
       },
-      "round": "0x64c290acc7d22c7bcf94acc9019134745e1d4ac72001f2c28a0861d873f4e95b",
+      "round": "0x07c31f9d3fdee94ca8603eff164c2b2faddd7d5ba70af717d65a34f34850850f",
       "verdict": "FILLED",
       "why": "pays 2.5000000 XLM to GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO",
-      "finalise_tx": "0x0b4da60248f8845ec510573e39a15d31e98bee3ee720b2fd22506be531feceb3",
-      "fake_round": "0x2b104dbbb72e12b4f0e9edcb713d2071e98dde64ffda0d731b2106948983864f",
+      "finalise_tx": "0x8e757a0d741f7f6687da40b2023fda3f953a4c0414a8e3ee5d68bdf86342e3ab",
+      "fake_round": "0xf0ed4036f5829895dd191194389294af4c652c6616c6520400ed0a261fe49f7d",
       "fake_verdict": "NOT_FILLED",
       "fake_why": "the network has no such transaction"
     },
     "B": {
-      "orderId": "0x4714bf7965c6ef377b1bbab4e82662f28ec048a2b5211bdc404f24df82cb40b2",
+      "orderId": "0xd1f8f942417a25800dc23c3b14e1f9ec1dfc48d563ea5ff7f3077948940989e2",
       "order": {
         "user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258",
-        "nonce": "1794832838001",
+        "nonce": "1794834219001",
         "originChainId": 4221,
-        "expires": 1794840041,
-        "fillDeadline": 1794836441,
+        "expires": 1794841422,
+        "fillDeadline": 1794837822,
         "inputOracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC",
         "inputs": [
           [
@@ -97,26 +97,26 @@
           }
         ]
       },
-      "open_tx": "0x50c3194c4c3d6bc37a9a5ba5cde714d9174196e0914597f0e07cc8bcf78424c7",
-      "far_tx": "6eaa83d40f777f4efedfef089d53b073a03b3c451d23e52ca99764b249a4d9da",
+      "open_tx": "0x3a4e3c8ab7656166b640eee0373b9d03d61feecd25b3a9cde3a3e771352ec502",
+      "far_tx": "9613df4ead896b6f8985e261074b1a979ac159f188baeb5fd2c7fd0691707eba",
       "far": "base-sepolia",
       "claim": {
-        "id": "0x73a28a981f657dd08480841574018941cdbb8c8d976ccc8e7640ca5382df5b66",
-        "tx": "0xcad3bf39637ab085cb01c48b1668bfa1e4b65fd9e721f08c45293bc3de94cde7"
+        "id": "0x7a3323859003b456d323f89c9c7de8a55acd5a98799458b1abf92b3e34514998",
+        "tx": "0xee7e0d2202890329152a4ce5eedbddd9d76b1ea7efd576b0a7f297e7696277fa"
       },
-      "round": "0x8210d14c57dbc4322db26b265724585dfd0523639c974aa0850c977a41cb42ad",
+      "round": "0xfc7629dd6dcba4c2d5bd1be6fe8839c3f37aa6731ad0aaff4bd0aa4ccd6adf55",
       "verdict": "FILLED",
       "why": "pays 100000000000000 wei to 0x80519c53f10d731e4ff83a7d9acd69cf98da6258",
-      "finalise_tx": "0x7ee31c569b269dfefc4fd5d2bde9b3d548eaaac6427aed005ad7d84bf55e4f2b"
+      "finalise_tx": "0x2b585ec868b66fd02110c60de0de45bc14f2ddba0ff4539affd2aafe6a8058cc"
     },
     "C": {
-      "orderId": "0x5092ab637024360d37d54fbeb93c182cc6d947dedff2fbfa680e09c3b8330ba2",
+      "orderId": "0x12e8b863c60aad087291f2c19441883f8fd121df184d74c05369957079d35204",
       "order": {
         "user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258",
-        "nonce": "1794832838002",
+        "nonce": "1794834219002",
         "originChainId": 4221,
-        "expires": 1794833744,
-        "fillDeadline": 1794833444,
+        "expires": 1794835124,
+        "fillDeadline": 1794834824,
         "inputOracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC",
         "inputs": [
           [
@@ -137,17 +137,17 @@
           }
         ]
       },
-      "open_tx": "0xf86ebbe3abcf6fe2999ee3f14d44ddce187add246303c43337bb1b6b94999e70",
-      "far_tx": "61879c845cf1e3df29cef7f036e3239252837fc8061da59f320a38a4601a6168",
+      "open_tx": "0x22b9bdcb03893154dcf6a282641200a03eb1203cf25e11dc3dbbaa465c4b1ea1",
+      "far_tx": "433a9e38d0a68b2bf926d7a5cf79db12f33269c9298e219ca23f6f237e6a589b",
       "far": "stellar-testnet",
       "claim": {
-        "id": "0x8526356cefb8823033b5d23eaf58fd65cd2052aaf2e26ec3ba7f926bf86551f1",
-        "tx": "0xd6f94f3cd5ba0765e02ce4e33c827e604c350dcf40d38c19bdcaf28208057490"
+        "id": "0xf619545f90066d042f7e638085215743afd60119113db04ffbcbd05a348dd012",
+        "tx": "0x7d45f5947151e577eb3abf6f9a03cf40f0ec9280a27cf94c110690f51656fcd2"
       },
-      "round": "0x28d07b44ef9769d7f7c519e087a5fcab1a073c7a94b373d48a55565ef892e091",
+      "round": "0x003b9aca237c77d21fb892db168989d4e1afd2692934b309347038ed5857d06d",
       "verdict": "NOT_FILLED",
       "why": "no operation pays exactly 3.0000000 XLM to GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO",
-      "refund_tx": "0xb21c6b1b1f88b37e68d95e33d8cf452e434ad824da028ceb27e24f4aedd06aee"
+      "refund_tx": "0x08c380b8308f0280bc28e723a435e0c332d90a6a7e8237ecbd7571e41ce4089c"
     }
   },
   "checks": [
@@ -155,13 +155,13 @@
       "n": 1,
       "name": "Three OIF orders are open on the unmodified InputSettlerEscrow, their inputs held by it",
       "ok": true,
-      "tx": "0x4be2695eac096e27a9e246fcfcf222287fb42613107306639d05698f50cb3ac2"
+      "tx": "0x097ff5e60138cc50d5f6c4f4fe376c6eb7619e890b57f74c98995ad3c1670153"
     },
     {
       "n": 2,
       "name": "The solver pays on Stellar testnet and Base Sepolia, each payment carrying memoFor(order, solver)",
       "ok": true,
-      "note": "stellar dbe305b317, base 6eaa83d40f"
+      "note": "stellar 7d2243085e, base 9613df4ead"
     },
     {
       "n": 3,
@@ -204,7 +204,7 @@
       "name": "A: a stranger claiming the solver's Stellar payment as its own gets NOT_FILLED: the memo names the solver",
       "ok": true,
       "note": "the memo binds this payment to another order or another solver",
-      "tx": "0x74347a3d54b65dd3f12c0299f20aa113aac0aaf1af80547b0b96d6a08b73f7a4",
+      "tx": "0x5688530eced1a360dbdd9261bf92c9caf2ba1599b549e89e3bbe88dcf31bd7f7",
       "gl": true
     },
     {
@@ -212,7 +212,7 @@
       "name": "B: the Base Sepolia payment is FILLED, read by the court from Blockscout",
       "ok": true,
       "note": "pays 100000000000000 wei to 0x80519c53f10d731e4ff83a7d9acd69cf98da6258",
-      "tx": "0x8210d14c57dbc4322db26b265724585dfd0523639c974aa0850c977a41cb42ad",
+      "tx": "0xfc7629dd6dcba4c2d5bd1be6fe8839c3f37aa6731ad0aaff4bd0aa4ccd6adf55",
       "gl": true
     },
     {
@@ -220,7 +220,7 @@
       "name": "C: a payment of 2.9 XLM against an order for 3 is NOT_FILLED",
       "ok": true,
       "note": "no operation pays exactly 3.0000000 XLM to GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO",
-      "tx": "0x28d07b44ef9769d7f7c519e087a5fcab1a073c7a94b373d48a55565ef892e091",
+      "tx": "0x003b9aca237c77d21fb892db168989d4e1afd2692934b309347038ed5857d06d",
       "gl": true
     },
     {
@@ -228,7 +228,7 @@
       "name": "F: a transaction the network does not show changes nothing inside the grace period",
       "ok": true,
       "note": "FINALIZED",
-      "tx": "0x3fb8f2cce75a2a8d52c13e012ab5e83c07e9f95bb8927c7585ef477cc1276323",
+      "tx": "0x552bfb59f7ee68f1d44e75e6f7187e61b81e774ae1d34006aa2ae41905a14646",
       "gl": true
     },
     {
@@ -236,7 +236,7 @@
       "name": "A: the solver claims the same payment and it is FILLED, read by the court from Horizon",
       "ok": true,
       "note": "pays 2.5000000 XLM to GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO",
-      "tx": "0x64c290acc7d22c7bcf94acc9019134745e1d4ac72001f2c28a0861d873f4e95b",
+      "tx": "0x07c31f9d3fdee94ca8603eff164c2b2faddd7d5ba70af717d65a34f34850850f",
       "gl": true
     },
     {
@@ -272,14 +272,14 @@
       "n": 19,
       "name": "A: the solver finalises on OIF's settler and is paid the order's inputs",
       "ok": true,
-      "tx": "0x0b4da60248f8845ec510573e39a15d31e98bee3ee720b2fd22506be531feceb3",
+      "tx": "0x8e757a0d741f7f6687da40b2023fda3f953a4c0414a8e3ee5d68bdf86342e3ab",
       "note": "+25.0 tUSD"
     },
     {
       "n": 20,
       "name": "B: the solver finalises on OIF's settler and is paid the order's inputs",
       "ok": true,
-      "tx": "0x7ee31c569b269dfefc4fd5d2bde9b3d548eaaac6427aed005ad7d84bf55e4f2b",
+      "tx": "0x2b585ec868b66fd02110c60de0de45bc14f2ddba0ff4539affd2aafe6a8058cc",
       "note": "+10.0 tUSD"
     },
     {
@@ -292,14 +292,14 @@
       "n": 22,
       "name": "C: after expiry anybody triggers OIF's refund and the inputs go back to the user",
       "ok": true,
-      "tx": "0xb21c6b1b1f88b37e68d95e33d8cf452e434ad824da028ceb27e24f4aedd06aee"
+      "tx": "0x08c380b8308f0280bc28e723a435e0c332d90a6a7e8237ecbd7571e41ce4089c"
     },
     {
       "n": 23,
       "name": "F: after the grace, a transaction the network still does not show is NOT_FILLED",
       "ok": true,
       "note": "the network has no such transaction",
-      "tx": "0x2b104dbbb72e12b4f0e9edcb713d2071e98dde64ffda0d731b2106948983864f",
+      "tx": "0xf0ed4036f5829895dd191194389294af4c652c6616c6520400ed0a261fe49f7d",
       "gl": true
     },
     {
@@ -310,13 +310,13 @@
     }
   ],
   "balances_start": {
-    "user": "175.0",
-    "solver": "25.0",
+    "user": "240.0",
+    "solver": "60.0",
     "settler": "0.0"
   },
   "balances_end": {
-    "user": "140.0",
-    "solver": "60.0",
+    "user": "205.0",
+    "solver": "95.0",
     "settler": "0.0"
   },
   "balance_changes": {
@@ -324,7 +324,7 @@
     "solver": "35.0",
     "settler": "0.0"
   },
-  "finished": "2026-11-16T12:58:02.059Z",
+  "finished": "2026-11-16T13:21:02.821Z",
   "passed": 24,
   "total": 24
 }

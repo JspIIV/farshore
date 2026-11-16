@@ -67,22 +67,6 @@
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "expectedBalance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "actualBalance",
-        "type": "uint256"
-      }
-    ],
-    "name": "InvalidBalanceDelta",
-    "type": "error"
-  },
-  {
     "inputs": [],
     "name": "InvalidOrderStatus",
     "type": "error"

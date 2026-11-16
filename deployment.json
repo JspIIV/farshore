@@ -2,8 +2,10 @@
   "network": "genlayer testnet bradbury phase 2",
   "chain_id": 4221,
   "input_settler": {
-    "address": "0x87EBa9B7AD9524FA8FFfeFf8FDA0dBfbB6d3a263",
-    "tx": "0x14516012204597089ae45f0752a851129d9e77fc2f9f454c674e1b651cd3c9cc"
+    "address": "0x1CC9260E285C2C8AC8D2E7102F3978056Ec1d0a8",
+    "via": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "oif_commit": "b260675"
   },
   "compiler": "0.8.30+commit.73712a01.Emscripten.clang",
   "test_usd": {
