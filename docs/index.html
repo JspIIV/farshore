@@ -119,8 +119,8 @@ section.band { padding: 74px 0; border-top: 1px solid var(--line); }
 .status.busy { color: var(--beam); background: rgba(255, 200, 100, .07); }
 .manifest { font: 13px/1.7 var(--mono); color: var(--mist); }
 .manifest .ln { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px dashed var(--line); padding: 5px 0; }
-.manifest .ln span:first-child { color: var(--dim); }
-.manifest .ln span:last-child { color: var(--foam); text-align: right; overflow-wrap: anywhere; }
+.manifest .ln > span:first-child { color: var(--dim); }
+.manifest .ln > span:last-child { color: var(--foam); text-align: right; overflow-wrap: anywhere; }
 .manifest h4 { font: 500 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .12em; margin: 18px 0 6px; }
 .manifest .lamp { font-size: 13px; }
 
@@ -275,7 +275,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wr
         <div class="step" data-i="2"><div class="n">3</div><div><b>Pay across</b><span>The solver key pays on Stellar with the memo for this order and your address.</span>
           <div class="choice"><input type="radio" name="pay" id="p-full" value="25000000" checked><label for="p-full">pay 2.5 XLM</label><input type="radio" name="pay" id="p-short" value="24000000"><label for="p-short">short it: 2.4 XLM</label></div></div><button class="btn small" id="b-pay" disabled>Pay</button></div>
         <div class="step" data-i="3"><div class="n">4</div><div><b>Claim the fill</b><span>Tell the oracle which Stellar transaction filled the order.</span></div><button class="btn small" id="b-claim" disabled>Claim</button></div>
-        <div class="step" data-i="4"><div class="n">5</div><div><b>Ask the lighthouse</b><span>Internet Court reads the transaction from Horizon. A few minutes; it reports when final.</span></div><button class="btn small" id="b-ask" disabled>Ask</button></div>
+        <div class="step" data-i="4"><div class="n">5</div><div><b>Ask the lighthouse</b><span>Internet Court reads the transaction from two independent sources. A few minutes; it reports when final.</span></div><button class="btn small" id="b-ask" disabled>Ask</button></div>
         <div class="step" data-i="5"><div class="n">6</div><div><b>Collect</b><span>FILLED: finalise on OIF's settler and the 10 tUSD come to you as the solver. NOT_FILLED: refund once the order expires.</span></div><button class="btn small" id="b-collect" disabled>Collect</button></div>
         <div class="status" id="status">Connect MetaMask to begin. The page adds GenLayer Bradbury (chain 4221).</div>
       </div>

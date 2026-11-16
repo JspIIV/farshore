@@ -107,8 +107,8 @@ section.band { padding: 74px 0; border-top: 1px solid var(--line); }
 .status.busy { color: var(--beam); background: rgba(255, 200, 100, .07); }
 .manifest { font: 13px/1.7 var(--mono); color: var(--mist); }
 .manifest .ln { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px dashed var(--line); padding: 5px 0; }
-.manifest .ln span:first-child { color: var(--dim); }
-.manifest .ln span:last-child { color: var(--foam); text-align: right; overflow-wrap: anywhere; }
+.manifest .ln > span:first-child { color: var(--dim); }
+.manifest .ln > span:last-child { color: var(--foam); text-align: right; overflow-wrap: anywhere; }
 .manifest h4 { font: 500 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .12em; margin: 18px 0 6px; }
 .manifest .lamp { font-size: 13px; }
 
