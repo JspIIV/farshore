@@ -1,0 +1,153 @@
+<body>
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M13 29 L14.5 12 H17.5 L19 29 Z" fill="#e9f2f1"/><rect x="13.5" y="8" width="5" height="4" rx="1" fill="#ffc864"/><path d="M12.5 8 L16 4.5 L19.5 8 Z" fill="#e9f2f1"/><path d="M19 10 L31 6 V14 Z" fill="#ffc864" opacity=".55"/><path d="M8 29 H24" stroke="#8ec9ff" stroke-width="2" stroke-linecap="round"/></svg>
+      Farshore
+    </a>
+    <nav class="nav"><a href="#crossing">The crossing</a><a href="#log">Log</a><a href="#voyage">Sail one</a><a href="#cheat">Try to cheat</a><a href="#proof">Proof</a><a href="#shores">Every shore</a></nav>
+    <div class="right"><span class="pill" id="bal">GenLayer Bradbury</span><button class="btn small" id="connect">Connect wallet</button></div>
+  </div>
+</header>
+
+<main>
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="kicker">Open Intents Framework &middot; Internet Court &middot; GenLayer</div>
+    <h1>Settle on this shore.<br/>Prove it on the <em>far one.</em></h1>
+    <p class="lede">An intent can ask for a payment on a chain no bridge reaches. Farshore is the Open Intents Framework oracle
+      for those chains: GenLayer validators look across, read the far chain's own public record, and when the payment is
+      exactly what the order asked, the court writes the proof that releases the solver's pay.</p>
+    <div class="cta"><a class="btn" href="#voyage">Sail an order</a><a class="btn ghost" href="#log">Read the log</a><a class="btn ghost" href="https://github.com/JspIIV/farshore" target="_blank" rel="noopener">Code</a></div>
+
+    <div class="chart">
+      <svg viewBox="0 0 1200 420" role="img" aria-label="A lighthouse on GenLayer Chain looking across the sea to Stellar and Base Sepolia">
+        <defs>
+          <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffdb94" stop-opacity=".75"/><stop offset="1" stop-color="#ffc864" stop-opacity="0"/></linearGradient>
+          <radialGradient id="glow"><stop offset="0" stop-color="#ffdb94" stop-opacity=".9"/><stop offset="1" stop-color="#ffc864" stop-opacity="0"/></radialGradient>
+        </defs>
+        <g fill="none" stroke="rgba(173,214,224,.10)" stroke-width="1">
+          <path d="M0 90 C200 70 380 120 600 96 S1000 70 1200 92"/><path d="M0 140 C220 118 420 168 620 142 S1010 120 1200 140"/>
+          <path d="M0 196 C240 176 400 224 640 198 S1000 176 1200 196"/><path d="M0 252 C210 232 430 280 620 254 S1010 232 1200 254"/>
+          <path d="M0 308 C230 290 410 336 640 310 S990 288 1200 310"/><path d="M0 360 C200 344 440 386 620 362 S1010 342 1200 362"/>
+        </g>
+        <!-- this shore -->
+        <path d="M0 0 H170 C200 70 150 130 205 190 C250 240 190 300 230 420 H0 Z" fill="#102a40" stroke="rgba(173,214,224,.25)"/>
+        <text x="24" y="40" fill="#6f8b95" font-family="Geist Mono" font-size="12" letter-spacing="2">THIS SHORE</text>
+        <text x="24" y="62" fill="#e9f2f1" font-family="Instrument Serif" font-size="24">GenLayer Chain</text>
+        <rect x="24" y="300" width="150" height="70" rx="8" fill="#0a1c2d" stroke="rgba(255,200,100,.45)"/>
+        <text x="36" y="324" fill="#ffc864" font-family="Geist Mono" font-size="11">OIF SETTLER</text>
+        <text x="36" y="344" fill="#e9f2f1" font-family="Geist Mono" font-size="11">0x1CC9...d0a8</text>
+        <text x="36" y="360" fill="#6f8b95" font-family="Geist Mono" font-size="10">inputs held here</text>
+        <!-- lighthouse -->
+        <g transform="translate(196 196)">
+          <circle r="60" fill="url(#glow)" opacity=".5"><animate attributeName="opacity" values=".35;.6;.35" dur="4s" repeatCount="indefinite"/></circle>
+          <g><animateTransform attributeName="transform" type="rotate" values="-14;14;-14" dur="9s" repeatCount="indefinite"/>
+            <path d="M0 0 L980 -70 L980 70 Z" fill="url(#beam)"/></g>
+          <path d="M-12 70 L-7 -10 H7 L12 70 Z" fill="#e9f2f1"/><rect x="-9" y="-24" width="18" height="14" rx="2" fill="#ffc864"/><path d="M-12 -24 L0 -36 L12 -24 Z" fill="#e9f2f1"/>
+        </g>
+        <text x="150" y="300" fill="#ffc864" font-family="Geist Mono" font-size="11">INTERNET COURT</text>
+        <!-- far shore -->
+        <path d="M1200 0 H1020 C985 80 1050 140 1000 210 C960 270 1030 330 990 420 H1200 Z" fill="#102a40" stroke="rgba(173,214,224,.25)"/>
+        <text x="1176" y="40" text-anchor="end" fill="#6f8b95" font-family="Geist Mono" font-size="12" letter-spacing="2">THE FAR SHORE</text>
+        <text x="1176" y="62" text-anchor="end" fill="#e9f2f1" font-family="Instrument Serif" font-size="24">no bridge reaches</text>
+        <g font-family="Geist Mono" font-size="11">
+          <rect x="1040" y="150" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="170" fill="#8ec9ff">STELLAR TESTNET</text><text x="1052" y="185" fill="#6f8b95">read via Horizon</text>
+          <rect x="1040" y="214" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="234" fill="#8ec9ff">BASE SEPOLIA</text><text x="1052" y="249" fill="#6f8b95">read via Blockscout</text>
+        </g>
+        <!-- the voyage -->
+        <path id="lane" d="M240 330 C470 390 720 330 1000 280" fill="none" stroke="rgba(233,242,241,.35)" stroke-width="1.5" stroke-dasharray="6 7"/>
+        <g><animateMotion dur="11s" repeatCount="indefinite" rotate="auto"><mpath href="#lane"/></animateMotion>
+          <path d="M-14 -3 H12 L6 6 H-10 Z" fill="#e9f2f1"/><path d="M-2 -3 V-20 L9 -6 Z" fill="#ffc864"/></g>
+      </svg>
+      <div class="legend"><span><i style="background:#ffc864"></i>the court's reading</span><span><i style="background:#8ec9ff"></i>far-chain record</span><span><i style="background:#e9f2f1"></i>an order underway</span></div>
+    </div>
+    <div class="stats" style="border:1px solid var(--line);border-top:0;border-radius:0 0 18px 18px;margin-top:-1px">
+      <div><b id="s-claims">..</b><span>claims logged</span></div>
+      <div><b id="s-filled">..</b><span>fills proven</span></div>
+      <div><b id="s-not">..</b><span>refused</span></div>
+      <div><b>2</b><span>far chains read</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="crossing">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">The crossing</div>X</div>
+      <p>OIF already knows how to pay a solver once an oracle proves the fill. It does not know how to see a chain no messaging layer reaches. That is the only part Farshore adds.</p></div>
+    <div class="route">
+      <div class="wp"><div class="dot">1</div><b>Open</b><p>The user locks inputs in OIF's settler and asks: pay this amount, to this account, on that chain.</p><small>InputSettlerEscrow.open</small></div>
+      <div class="wp"><div class="dot">2</div><b>Pay across</b><p>A solver pays on the far chain. The memo is a hash of the order and the solver itself.</p><small>memoFor(order, solver)</small></div>
+      <div class="wp"><div class="dot">3</div><b>Claim</b><p>The solver tells the oracle which transaction filled the order. A hash, nothing else.</p><small>FarshoreOracle.claim</small></div>
+      <div class="wp"><div class="dot">4</div><b>The light</b><p>Validators read that transaction from the chain's own API and agree, in code, on FILLED or NOT_FILLED.</p><small>Farshore.verify</small></div>
+      <div class="wp"><div class="dot">5</div><b>Paid, or refunded</b><p>The court's call writes OIF's proof; the solver finalises. Unfilled orders refund after expiry.</p><small>finalise / refund</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="log">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">The log</div><h2>Every claim the oracle has heard.</h2></div>
+      <p>Read live from the FarshoreOracle on GenLayer Chain and the court on GenLayer. Each line is a solver saying "this transaction filled that order", and what the light saw.</p></div>
+    <div class="log" id="logrows"><div class="r h"><span>Claim</span><span>Far chain</span><span>What the court saw</span><span>Amount</span><span>Verdict</span></div><div class="more">Reading the log...</div></div>
+  </div>
+</section>
+
+<section class="band" id="voyage">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Sail one</div><h2>Open an order. Fill it yourself. Watch the light <em>decide.</em></h2></div>
+      <p>You play the user with MetaMask on GenLayer Bradbury. Your browser plays the solver with a throwaway Stellar testnet key, funded by Stellar's friendbot. Pay in full, or short it and see the court refuse.</p></div>
+    <div class="voyage">
+      <div class="panel">
+        <h3>The voyage</h3>
+        <p class="sub">Each step is a real transaction. Signing on GenLayer costs a little test GEN; the Stellar side costs nothing.</p>
+        <div class="step" data-i="0"><div class="n">1</div><div><b>Fit out</b><span>Mint 20 test dollars, and make two Stellar testnet accounts in this browser: yours to be paid, the solver's to pay.</span></div><button class="btn small" id="b-fit">Fit out</button></div>
+        <div class="step" data-i="1"><div class="n">2</div><div><b>Open the order</b><span>Lock 10 tUSD in OIF's settler for 2.5 XLM to your Stellar account. Fill within 20 minutes.</span></div><button class="btn small" id="b-open" disabled>Open</button></div>
+        <div class="step" data-i="2"><div class="n">3</div><div><b>Pay across</b><span>The solver key pays on Stellar with the memo for this order and your address.</span>
+          <div class="choice"><input type="radio" name="pay" id="p-full" value="25000000" checked><label for="p-full">pay 2.5 XLM</label><input type="radio" name="pay" id="p-short" value="24000000"><label for="p-short">short it: 2.4 XLM</label></div></div><button class="btn small" id="b-pay" disabled>Pay</button></div>
+        <div class="step" data-i="3"><div class="n">4</div><div><b>Claim the fill</b><span>Tell the oracle which Stellar transaction filled the order.</span></div><button class="btn small" id="b-claim" disabled>Claim</button></div>
+        <div class="step" data-i="4"><div class="n">5</div><div><b>Ask the lighthouse</b><span>Internet Court reads the transaction from Horizon. A few minutes; it reports when final.</span></div><button class="btn small" id="b-ask" disabled>Ask</button></div>
+        <div class="step" data-i="5"><div class="n">6</div><div><b>Collect</b><span>FILLED: finalise on OIF's settler and the 10 tUSD come to you as the solver. NOT_FILLED: refund once the order expires.</span></div><button class="btn small" id="b-collect" disabled>Collect</button></div>
+        <div class="status" id="status">Connect MetaMask to begin. The page adds GenLayer Bradbury (chain 4221).</div>
+      </div>
+      <div class="panel manifest" id="manifest">
+        <h3 style="font-family:var(--serif);font-weight:400;font-size:28px;color:var(--foam);margin:0 0 6px">The manifest</h3>
+        <p class="sub" style="font-family:var(--sans)">What is on chain for your voyage, read back after every step.</p>
+        <div id="mf">No voyage yet.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="cheat">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Try to cheat</div><h2>Each attack runs against the <em>live</em> contracts.</h2></div>
+      <p>Every card sends a real <code>eth_call</code> to GenLayer Chain from the address that would try it, on orders from the proof. Nothing is spent; the contracts answer.</p></div>
+    <div class="attacks" id="attacks"></div>
+  </div>
+</section>
+
+<section class="band" id="proof">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">The proof</div><h2 id="proof-title">Every way across, on chain.</h2></div>
+      <p>One script, <code>scripts/prove.mjs</code>: real orders on OIF's settler, real payments on Stellar testnet and Base Sepolia, real Internet Court rounds, balances counted to the unit.</p></div>
+    <div class="proof" id="proof-list"></div>
+  </div>
+</section>
+
+<section class="band" id="shores">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Every shore</div><h2>OIF's settler: the same code at the <em>same address.</em></h2></div>
+      <p>The settler on GenLayer Chain is rebuilt from OIF's source with OIF's exact compiler input and sent through the same deterministic deployment proxy, so it lands where OIF's own deployments are. <code>scripts/verify_evm.mjs</code> compares all four.</p></div>
+    <div class="shores">
+      <div class="shore here"><small>this shore</small><b>GenLayer Chain</b><span class="lamp FILLED">MATCH</span></div>
+      <div class="shore"><small>OIF mainnet</small><b>Ethereum</b><span class="lamp FILLED">MATCH</span></div>
+      <div class="shore"><small>OIF mainnet</small><b>Base</b><span class="lamp FILLED">MATCH</span></div>
+      <div class="shore"><small>OIF testnet</small><b>Base Sepolia</b><span class="lamp FILLED">MATCH</span></div>
+    </div>
+    <table class="addr" id="addr"></table>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap"><span>Farshore &middot; MIT &middot; GenLayer Bradbury, Stellar testnet and Base Sepolia; test money only.</span><span><a href="https://github.com/JspIIV/farshore" target="_blank" rel="noopener">github.com/JspIIV/farshore</a></span></div></footer>

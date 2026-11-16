@@ -1,0 +1,333 @@
+<script type="module">
+// Bundled builds, one file each, so the module CDN does not rate-limit the page.
+import { createClient } from "https://esm.sh/genlayer-js@2.0.0-rc.2?bundle";
+import { testnetBradbury } from "https://esm.sh/genlayer-js@2.0.0-rc.2/chains?bundle";
+import { BrowserProvider, Contract, Interface, AbiCoder, parseUnits, formatUnits, ZeroHash } from "https://esm.sh/ethers@6.13.4";
+import StellarSdk from "https://esm.sh/@stellar/stellar-sdk@14.6.1?bundle";
+import { ChainProvider, CHAIN_RPCS } from "./rpc.js";
+import { output, order, orderTuple, outputTuple, ident } from "./oif.js";
+const { Keypair, Horizon, TransactionBuilder, Networks, Operation, Asset, Memo, BASE_FEE } = StellarSdk;
+
+const DEP = __DEP__;
+const PROOF = __PROOF__;
+const RPC = "https://rpc-bradbury.genlayer.com";
+const EXPLORER = "https://scan.bradbury.genlayer.com";
+const CHAIN_EXPLORER = "https://scan.testnet-chain.genlayer.com";
+const STELLAR_TX = "https://stellar.expert/explorer/testnet/tx/";
+const CHAIN_ID_HEX = "0x107d";
+const CHAIN_PARAMS = { chainId: CHAIN_ID_HEX, chainName: "GenLayer Bradbury", nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 }, rpcUrls: CHAIN_RPCS, blockExplorerUrls: [CHAIN_EXPLORER] };
+const PI = "tuple(bytes32 oracle,bytes32 settler,uint256 chainId,bytes32 token,uint256 amount,bytes32 recipient,bytes callbackData,bytes context)";
+const ORDER_T = `tuple(address user,uint256 nonce,uint256 originChainId,uint32 expires,uint32 fillDeadline,address inputOracle,uint256[2][] inputs,${PI}[] outputs)`;
+const SETTLER_ABI = [
+  `function open(${ORDER_T} order)`, `function orderIdentifier(${ORDER_T} order) view returns (bytes32)`,
+  `function finalise(${ORDER_T} order,tuple(uint32 timestamp,bytes32 solver)[] solveParams,bytes32 destination,bytes call)`,
+  `function refund(${ORDER_T} order)`, "function orderStatus(bytes32) view returns (uint8)",
+  "error NotProven()", "error NotOrderOwner()", "error InvalidOrderStatus()", "error TimestampNotPassed()", "error TimestampPassed()", "error FilledTooLate(uint32,uint32)",
+];
+const ORACLE_ABI = [
+  "function memoFor(bytes32,bytes32) view returns (bytes32)", `function claimIdOf(bytes32,${PI},bytes32,bytes32) view returns (bytes32)`,
+  `function claim(bytes32,${PI},bytes32) returns (bytes32)`, "function settle(bytes32,bool,uint32,bytes32)",
+  "function claimCount() view returns (uint256)", "function claimIds(uint256) view returns (bytes32)",
+  "function claimFacts(bytes32) view returns (uint8 status,bytes32 orderId,bytes32 solver,bytes32 txHash,bytes32 token,uint256 amount,bytes32 recipient,uint32 filledAt)",
+];
+const USD_ABI = ["function mint(address,uint256)", "function approve(address,uint256) returns (bool)", "function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)"];
+const CLAIM = ["None", "Claimed", "Filled", "NotFilled"], ORDER = ["None", "Deposited", "Claimed", "Refunded"];
+
+const chain = new ChainProvider();
+const oracle = new Contract(DEP.oracle, ORACLE_ABI, chain);
+const settler = new Contract(DEP.input_settler, SETTLER_ABI, chain);
+const usd = new Contract(DEP.test_usd, USD_ABI, chain);
+const errs = new Interface([...SETTLER_ABI, ...ORACLE_ABI].filter((x) => x.startsWith("error")));
+const reader = createClient({ chain: testnetBradbury, endpoint: RPC });
+const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+let account = null, eip1193 = null;
+const realFetch = window.fetch.bind(window);
+// The SDK quotes fees with an eth_call that has a gas price and no sender, which the node refuses from the zero address.
+window.fetch = async (input, init) => {
+  if (account && init && typeof init.body === "string" && init.body.includes('"eth_call"')) {
+    const body = JSON.parse(init.body);
+    for (const req of Array.isArray(body) ? body : [body]) if (req.method === "eth_call" && req.params?.[0] && !req.params[0].from) req.params[0].from = account;
+    return realFetch(input, { ...init, body: JSON.stringify(body) });
+  }
+  return realFetch(input, init);
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const short = (a, n = 6) => (a ? `${String(a).slice(0, n)}...${String(a).slice(-4)}` : "");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const nowS = () => Math.floor(Date.now() / 1000);
+const tag = (raw) => { const b = raw.replace(/^0x/, ""); let s = ""; for (let i = 0; i < b.length; i += 2) { const c = parseInt(b.slice(i, i + 2), 16); if (c) s += String.fromCharCode(c); } return s; };
+const amountOf = (network, amount) => network.startsWith("stellar") ? (Number(amount) / 1e7).toFixed(7).replace(/\.?0+$/, "") + " XLM" : (Number(amount) / 1e18).toString() + " ETH";
+const glLink = (h, t) => `<a href="${EXPLORER}/tx/${h}" target="_blank" rel="noopener">${t || short(h)}</a>`;
+const chLink = (h, t) => `<a href="${CHAIN_EXPLORER}/tx/${h}" target="_blank" rel="noopener">${t || short(h)}</a>`;
+const farLink = (network, tx) => network.startsWith("stellar") ? `<a href="${STELLAR_TX}${tx}" target="_blank" rel="noopener">${short(tx)}</a>` : `<a href="https://base-sepolia.blockscout.com/tx/0x${tx}" target="_blank" rel="noopener">${short(tx)}</a>`;
+const store = { get: (k) => { try { return JSON.parse(localStorage.getItem("farshore." + k)); } catch { return null; } }, set: (k, v) => localStorage.setItem("farshore." + k, JSON.stringify(v, (key, val) => typeof val === "bigint" ? val.toString() : val)) };
+function say(html, tone = "") { const s = $("status"); s.innerHTML = html; s.className = "status " + tone; }
+function reasonOf(e) {
+  const seen = new Set(), texts = [];
+  (function walk(x, d) { if (x == null || d > 5) return; if (typeof x === "string") { texts.push(x); return; } if (typeof x !== "object" || seen.has(x)) return; seen.add(x);
+    for (const k of Object.getOwnPropertyNames(x)) { try { walk(x[k], d + 1); } catch {} } })(e, 0);
+  for (const t of texts) { const m = t.match(/Farshore:[\w-]+/); if (m) return m[0]; }
+  for (const t of texts) { const m = t.match(/0x[0-9a-fA-F]{8,}/g); if (m) for (const d of m) { try { const p = errs.parseError(d); if (p) return p.name; } catch {} } }
+  if (e?.code === "ACTION_REJECTED" || e?.code === 4001) return "Rejected in the wallet.";
+  if (texts.some((t) => /-32017|Rate Limit/i.test(t))) return "The public RPC is rate limiting this browser; try again in a few seconds.";
+  return (e?.shortMessage || e?.message || String(e)).slice(0, 200);
+}
+
+// ------------------------------------------------------------------ wallet
+async function ensureWallet() {
+  eip1193 = window.ethereum;
+  if (!eip1193) throw new Error("No wallet found. Reading needs none; to sail, open this page in a browser with MetaMask.");
+  if (!account) { const a = await eip1193.request({ method: "eth_requestAccounts" }); account = a && a[0]; $("connect").textContent = short(account); }
+  const cur = await eip1193.request({ method: "eth_chainId" });
+  if (String(cur).toLowerCase() !== CHAIN_ID_HEX) {
+    try { await eip1193.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID_HEX }] }); }
+    catch (err) { if (err && (err.code === 4902 || err.code === -32603)) await eip1193.request({ method: "wallet_addEthereumChain", params: [CHAIN_PARAMS] }); else throw err; }
+  }
+  return await new BrowserProvider(eip1193).getSigner();
+}
+async function balance() { if (account) $("bal").textContent = formatUnits(await usd.balanceOf(account), 18).replace(/\.0$/, "") + " tUSD"; }
+$("connect").onclick = async () => { try { await ensureWallet(); say("Connected " + short(account) + " on GenLayer Bradbury. Fit out to begin.", "good"); balance(); draw(); } catch (e) { say(reasonOf(e), "bad"); } };
+
+// ------------------------------------------------------------------ the voyage
+function stellarKey(name) {
+  let s = store.get("stellar." + name);
+  if (!s) { s = Keypair.random().secret(); store.set("stellar." + name, s); }
+  return Keypair.fromSecret(s);
+}
+async function funded(kp) {
+  try { await horizon.loadAccount(kp.publicKey()); return true; }
+  catch { const r = await fetch("https://friendbot.stellar.org/?addr=" + kp.publicKey()); return r.ok; }
+}
+const rawKey = (kp) => "0x" + Array.from(kp.rawPublicKey()).map((b) => b.toString(16).padStart(2, "0")).join("");
+const voyage = () => store.get("voyage");
+function stage() {
+  const v = voyage();
+  if (!v) return store.get("fitted") ? 1 : 0;
+  if (v.collected) return 6;
+  if (v.claimStatus === "Filled" || v.claimStatus === "NotFilled") return 5;
+  if (v.claimId) return 4;
+  if (v.farTx) return 3;
+  return 2;
+}
+function drawSteps() {
+  const s = stage();
+  document.querySelectorAll(".step").forEach((el) => { const i = Number(el.dataset.i); el.className = "step" + (i < s ? " done" : i === s ? " on" : ""); });
+  $("b-fit").disabled = s !== 0 && s !== 6; $("b-open").disabled = s !== 1 && s !== 6;
+  $("b-pay").disabled = s !== 2; $("b-claim").disabled = s !== 3; $("b-ask").disabled = s !== 4;
+  const v = voyage();
+  $("b-collect").disabled = !(s === 5 && (v.claimStatus === "Filled" || nowS() > v.order.expires));
+  $("b-collect").textContent = s === 5 && v?.claimStatus === "NotFilled" ? (nowS() > v.order.expires ? "Refund" : "Refund after expiry") : "Collect";
+}
+async function draw() {
+  drawSteps();
+  const v = voyage();
+  if (!v) { $("mf").innerHTML = "No voyage yet."; return; }
+  let os = "", cs = "", ruling = null;
+  try { os = ORDER[Number(await settler.orderStatus(v.orderId))]; } catch {}
+  if (v.claimId) {
+    try { const f = await oracle.claimFacts(v.claimId); cs = CLAIM[Number(f[0])]; v.claimStatus = cs; v.filledAt = Number(f[7]); store.set("voyage", v); } catch {}
+    try { const r = JSON.parse(await reader.readContract({ address: DEP.court, functionName: "ruling", args: [v.claimId] })); if (r.verdict) ruling = r; } catch {}
+  }
+  const left = v.order.fillDeadline - nowS();
+  $("mf").innerHTML = `
+    <h4>The order, on OIF's settler</h4>
+    <div class="ln"><span>order id</span><span>${short(v.orderId, 10)}</span></div>
+    <div class="ln"><span>locks</span><span>10 tUSD</span></div>
+    <div class="ln"><span>asks for</span><span>2.5 XLM on Stellar testnet</span></div>
+    <div class="ln"><span>to</span><span>${short(v.userG, 8)}</span></div>
+    <div class="ln"><span>fill by</span><span>${left > 0 ? Math.floor(left / 60) + " min left" : "deadline passed"}</span></div>
+    <div class="ln"><span>status</span><span>${esc(os || "...")}</span></div>
+    ${v.farTx ? `<h4>Across the water</h4>
+    <div class="ln"><span>solver paid</span><span>${(Number(v.paid) / 1e7).toFixed(1)} XLM</span></div>
+    <div class="ln"><span>transaction</span><span>${farLink("stellar", v.farTx)}</span></div>
+    <div class="ln"><span>memo</span><span>${short(v.memo, 10)}</span></div>` : ""}
+    ${v.claimId ? `<h4>The claim, on the FarshoreOracle</h4>
+    <div class="ln"><span>claim id</span><span>${short(v.claimId, 10)}</span></div>
+    <div class="ln"><span>status</span><span><span class="lamp ${cs}">${esc(cs || "...")}</span></span></div>` : ""}
+    ${ruling ? `<h4>What the lighthouse saw</h4>
+    <div class="ln"><span>verdict</span><span><span class="lamp ${ruling.verdict}">${ruling.verdict}</span></span></div>
+    <div class="ln"><span>why</span><span>${esc(ruling.why)}</span></div>
+    ${ruling.filled_at ? `<div class="ln"><span>filled at</span><span>${new Date(ruling.filled_at * 1000).toISOString().replace(".000Z", "Z")}</span></div>` : ""}` : ""}`;
+}
+
+$("b-fit").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    say("Making and funding two Stellar testnet accounts in this browser ...", "busy");
+    const u = stellarKey("user"), sol = stellarKey("solver");
+    if (!(await funded(u)) || !(await funded(sol))) throw new Error("Stellar's friendbot did not fund the accounts; try again in a minute.");
+    say("Minting 20 test dollars and letting OIF's settler take them (two wallet steps) ...", "busy");
+    const t = new Contract(DEP.test_usd, USD_ABI, s);
+    if ((await usd.balanceOf(account)) < parseUnits("10", 18)) await (await t.mint(account, parseUnits("20", 18))).wait();
+    if ((await usd.allowance(account, DEP.input_settler)) < parseUnits("10", 18)) await (await t.approve(DEP.input_settler, parseUnits("1000", 18))).wait();
+    store.set("fitted", true); store.set("voyage", null);
+    say(`Fitted out. Your Stellar account ${short(u.publicKey(), 8)} will be paid; the solver ${short(sol.publicKey(), 8)} will pay.`, "good"); balance(); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+$("b-open").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    const u = stellarKey("user");
+    const t0 = (await chain.getBlock("latest")).timestamp;
+    const out = output({ oracle: DEP.oracle, network: "stellar-testnet", asset: "XLM", amount: 25_000_000n, recipient: rawKey(u) });
+    const o = order({ user: account, nonce: BigInt(Date.now()), inputToken: DEP.test_usd, inputAmount: parseUnits("10", 18), oracle: DEP.oracle, outputs: [out], fillDeadline: t0 + 1200, expires: t0 + 1500 });
+    const orderId = await settler.orderIdentifier(orderTuple(o));
+    say("Open the order in MetaMask: OIF's settler takes 10 tUSD ...", "busy");
+    const tx = await new Contract(DEP.input_settler, SETTLER_ABI, s).open(orderTuple(o)); await tx.wait();
+    store.set("voyage", { order: o, out, orderId, openTx: tx.hash, userG: u.publicKey() });
+    say(`Order open. ${chLink(tx.hash, "transaction")}. Now the solver pays across.`, "good"); balance(); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+$("b-pay").onclick = async () => {
+  try {
+    await ensureWallet();
+    const v = voyage(), sol = stellarKey("solver");
+    const paid = BigInt(document.querySelector('input[name="pay"]:checked').value);
+    const memo = await oracle.memoFor(v.orderId, ident(account));
+    say(`The solver pays ${(Number(paid) / 1e7).toFixed(1)} XLM on Stellar testnet, memo ${short(memo, 10)} ...`, "busy");
+    const acc = await horizon.loadAccount(sol.publicKey());
+    const amount = (paid / 10_000_000n).toString() + "." + (paid % 10_000_000n).toString().padStart(7, "0");
+    const t = new TransactionBuilder(acc, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
+      .addOperation(Operation.payment({ destination: v.userG, asset: Asset.native(), amount }))
+      .addMemo(Memo.hash(memo.slice(2))).setTimeout(120).build();
+    t.sign(sol);
+    const res = await horizon.submitTransaction(t);
+    Object.assign(v, { farTx: res.hash, paid: paid.toString(), memo }); store.set("voyage", v);
+    say(`Paid on Stellar: ${farLink("stellar", res.hash)}. Now claim the fill.`, "good"); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+$("b-claim").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    const v = voyage();
+    const claimId = await oracle.claimIdOf(v.orderId, outputTuple(v.out), "0x" + v.farTx, ident(account));
+    say("Claim the fill in MetaMask ...", "busy");
+    const tx = await new Contract(DEP.oracle, ORACLE_ABI, s).claim(v.orderId, outputTuple(v.out), "0x" + v.farTx); await tx.wait();
+    Object.assign(v, { claimId, claimTx: tx.hash }); store.set("voyage", v);
+    say(`Claimed. ${chLink(tx.hash, "transaction")}. Now ask the lighthouse.`, "good"); draw(); loadLog();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+async function askCourt(claimId, show) {
+  await ensureWallet();
+  const c = createClient({ chain: testnetBradbury, endpoint: RPC, account, provider: eip1193 });
+  const gasLimit = 400000n, maxGasPrice = 1000000000n, budget = gasLimit * maxGasPrice;
+  const feeParams = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [gasLimit, maxGasPrice]);
+  // The court's ruling reaches the oracle as a message when the verdict is final; this budget pays for it.
+  const messageAllocations = [{ messageType: 0, onAcceptance: false, recipient: DEP.oracle, budget, feeParams }];
+  const quote = await c.estimateTransactionFees({ totalMessageFees: budget, messageAllocations });
+  show("Approve the request to Internet Court in MetaMask ...", "busy");
+  const hash = await c.writeContract({ address: DEP.court, functionName: "verify", args: [claimId], value: 0n, fees: { distribution: quote.distribution, feeValue: quote.feeValue, messageAllocations } });
+  for (let i = 0; i < 400; i++) {
+    await sleep(6000);
+    let tx = null; try { tx = await reader.getTransaction({ hash }); } catch {}
+    const name = String(tx?.statusName || "");
+    if (name === "FINALIZED") {
+      for (let k = 0; k < 30; k++) { const f = await oracle.claimFacts(claimId); if (Number(f[0]) >= 2) break; show(`Final. Waiting for the court's own call to reach the oracle ... ${glLink(hash, "round")}`, "busy"); await sleep(5000); }
+      const r = JSON.parse(await reader.readContract({ address: DEP.court, functionName: "ruling", args: [claimId] }));
+      if (!r.verdict) { show(`The round finished and changed nothing: the network was not readable, or the transaction is not visible yet. Ask again. ${glLink(hash, "round")}`, "bad"); return; }
+      show(`The lighthouse saw it: <b>${r.verdict}</b>, ${esc(r.why)}. ${glLink(hash, "round")}`, r.verdict === "FILLED" ? "good" : "bad");
+      return;
+    }
+    if (["UNDETERMINED", "CANCELED", "LEADER_TIMEOUT", "VALIDATORS_TIMEOUT"].includes(name)) { show(`The round ended ${name} and changed nothing. ${glLink(hash, "round")}`, "bad"); return; }
+    show(name === "ACCEPTED" ? `Accepted by the validators. The court acts only once its verdict is final ... ${glLink(hash, "round")}` : `Validators are reading Stellar's record ... ${(i + 1) * 6}s, ${name || "waiting for the network"}. ${glLink(hash, "round")}`, "busy");
+  }
+}
+$("b-ask").onclick = async () => { try { await askCourt(voyage().claimId, say); draw(); loadLog(); } catch (e) { say(reasonOf(e), "bad"); } };
+
+$("b-collect").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    const v = voyage(), st = new Contract(DEP.input_settler, SETTLER_ABI, s);
+    let tx;
+    if (v.claimStatus === "Filled") {
+      say("Finalise on OIF's settler in MetaMask ...", "busy");
+      tx = await st.finalise(orderTuple(v.order), [[v.filledAt, ident(account)]], ident(account), "0x");
+    } else {
+      say("Refund the order on OIF's settler in MetaMask ...", "busy");
+      tx = await st.refund(orderTuple(v.order));
+    }
+    await tx.wait();
+    v.collected = true; store.set("voyage", v);
+    say(`${v.claimStatus === "Filled" ? "Paid: OIF's settler released the 10 tUSD to you as the solver." : "Refunded: OIF's settler returned the 10 tUSD to you as the user."} ${chLink(tx.hash, "transaction")}`, "good");
+    balance(); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+// ------------------------------------------------------------------ the log
+let shown = 15;
+async function pool(items, n, fn) {
+  const out = new Array(items.length); let next = 0;
+  await Promise.all([...Array(Math.min(n, items.length))].map(async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } }));
+  return out;
+}
+async function loadLog() {
+  const n = Number(await oracle.claimCount());
+  // All the court's rulings in one read, newest first; claims are read from the oracle a few at a time.
+  const rulingsP = reader.readContract({ address: DEP.court, functionName: "page", args: [0, 50] }).then((t) => JSON.parse(t).items).catch(() => []);
+  const idx = []; for (let i = n - 1; i >= 0 && idx.length < shown; i--) idx.push(i);
+  const rows = await pool(idx, 4, async (i) => {
+    const id = await oracle.claimIds(i);
+    const f = await oracle.claimFacts(id);
+    return { id, network: tag(f[4].slice(0, 34)), st: CLAIM[Number(f[0])], amount: f[5], tx: f[3].slice(2) };
+  });
+  const why = Object.fromEntries((await rulingsP).map((r) => [r.claim.toLowerCase(), r.why]));
+  let filled = 0, not = 0;
+  for (const r of rows) { r.why = why[r.id.toLowerCase()] || ""; if (r.st === "Filled") filled++; if (r.st === "NotFilled") not++; }
+  $("s-claims").textContent = n; $("s-filled").textContent = filled + (n > shown ? "+" : ""); $("s-not").textContent = not + (n > shown ? "+" : "");
+  $("logrows").innerHTML = `<div class="r h"><span>Claim</span><span>Far chain</span><span>What the court saw</span><span>Amount</span><span>Verdict</span></div>` +
+    rows.map((r) => `<div class="r"><span class="mono">${short(r.id, 8)}</span><span>${esc(r.network)}<br/><span class="mono" style="font-size:11px">${farLink(r.network, r.tx)}</span></span><span class="why">${esc(r.why || (r.st === "Claimed" ? "waiting for the court" : ""))}</span><span class="mono">${amountOf(r.network, r.amount)}</span><span><span class="lamp ${r.st}">${r.st === "NotFilled" ? "NOT FILLED" : r.st.toUpperCase()}</span></span></div>`).join("") +
+    (n > shown ? `<div class="more"><button class="btn small ghost" id="more">Show more</button></div>` : "");
+  if ($("more")) $("more").onclick = () => { shown += 15; loadLog(); };
+}
+
+// ------------------------------------------------------------------ try to cheat
+const O = PROOF.orders, Z = ZeroHash, A = PROOF.accounts;
+const sI = new Interface(SETTLER_ABI), oI = new Interface(ORACLE_ABI);
+// Order A's proven timestamp, read from the oracle, so the "paid twice" attack gets past the proof check to the status check.
+oracle.claimFacts(O.A.claim).then((f) => { O.A.filledAt = Number(f[7]); }).catch(() => {});
+const ATTACKS = [
+  { t: "Settle a claim yourself", d: "A stranger tells the oracle a claim was filled, without the court.", who: ["stranger", A.stranger],
+    call: () => ({ to: DEP.oracle, data: oI.encodeFunctionData("settle", [O.B.claim, true, 1, Z]) }) },
+  { t: "Spend one payment twice", d: "The solver claims the Stellar payment that already filled order A against order C.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.oracle, data: oI.encodeFunctionData("claim", [O.C.orderId, outputTuple(O.C.out), "0x" + O.A.far_tx]) }) },
+  { t: "Point at another oracle", d: "A claim whose output names a different oracle, to borrow this one's attestation.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.oracle, data: oI.encodeFunctionData("claim", [O.A.orderId, outputTuple({ ...O.A.out, oracle: ident(A.user) }), "0x" + O.A.far_tx]) }) },
+  { t: "Collect someone else's fill", d: "A stranger finalises order A on OIF's settler, naming itself as destination.", who: ["stranger", A.stranger],
+    call: () => ({ to: DEP.input_settler, data: sI.encodeFunctionData("finalise", [orderTuple(O.A.order), [[O.A.filledAt, ident(A.solver)]], ident(A.stranger), "0x"]) }) },
+  { t: "Get paid twice", d: "The solver finalises order A again, after it was paid.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.input_settler, data: sI.encodeFunctionData("finalise", [orderTuple(O.A.order), [[O.A.filledAt, ident(A.solver)]], ident(A.solver), "0x"]) }) },
+  { t: "Collect without a proof", d: "The solver finalises order C, which the court refused: no attestation, no pay.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.input_settler, data: sI.encodeFunctionData("finalise", [orderTuple(O.C.order), [[1, ident(A.solver)]], ident(A.solver), "0x"]) }) },
+];
+$("attacks").innerHTML = ATTACKS.map((a, i) => `<div class="atk"><b>${esc(a.t)}</b><p>${esc(a.d)}</p><span class="who">from the ${a.who[0]}, ${short(a.who[1])}</span><button class="btn small ghost" data-atk="${i}">Try it</button><span class="out" id="atk-${i}"></span></div>`).join("");
+document.querySelectorAll("[data-atk]").forEach((b) => (b.onclick = async () => {
+  const a = ATTACKS[Number(b.dataset.atk)], out = $("atk-" + b.dataset.atk);
+  out.className = "out"; out.textContent = "calling GenLayer Chain ...";
+  try { await chain.call({ ...a.call(), from: a.who[1] }); out.className = "out bad"; out.textContent = "it went through"; }
+  catch (e) { out.className = "out good"; out.textContent = "refused: " + reasonOf(e); }
+}));
+
+// ------------------------------------------------------------------ proof and addresses
+$("proof-title").textContent = `${PROOF.passed} of ${PROOF.total} checks passed on Bradbury.`;
+$("proof-list").innerHTML = PROOF.checks.map((c) => `<div><i class="${c.ok ? "" : "no"}">${c.ok ? "PASS" : "FAIL"}</i><span>${esc(c.name)}${c.note && c.gl ? `<br/><small>${esc(c.note)}</small>` : ""}</span>${c.tx ? (c.gl ? glLink(c.tx, "round") : chLink(c.tx, "tx")) : "<span></span>"}</div>`).join("");
+const addr = (a, gl) => `<a class="mono" href="${gl ? EXPLORER : CHAIN_EXPLORER}/address/${a}" target="_blank" rel="noopener">${a}</a>`;
+$("addr").innerHTML = [
+  ["Internet Court (Farshore)", addr(DEP.court, true), "Intelligent Contract on GenLayer Bradbury: reads the far chain, settles claims"],
+  ["FarshoreOracle", addr(DEP.oracle), "the OIF input oracle, on GenLayer Chain"],
+  ["InputSettlerEscrow", addr(DEP.input_settler), "OIF, unmodified, at its canonical address"],
+  ["Test USD", addr(DEP.test_usd), "the inputs orders lock; free to mint"],
+].map((r) => `<tr><td>${r[0]}</td><td>${r[1]}<br/><small>${r[2]}</small></td></tr>`).join("");
+
+if (window.ethereum) window.ethereum.request({ method: "eth_accounts" }).then((a) => { if (a && a[0]) { account = a[0]; $("connect").textContent = short(account); balance(); } }).catch(() => {});
+draw();
+loadLog().catch((e) => console.warn("log", e));
+setInterval(() => { drawSteps(); if (voyage() && !voyage().collected) draw().catch(() => {}); }, 20000);
+</script>
+</body>
+</html>

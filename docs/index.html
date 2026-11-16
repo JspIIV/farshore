@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Farshore: an intents oracle for chains no bridge reaches</title>
+<meta name="description" content="An open source GenLayer testnet demo: Internet Court as an Open Intents Framework oracle that reads Stellar and Base Sepolia and releases the solver's pay on OIF's own settler." />
+<link rel="icon" href="logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* Farshore: a lighthouse and a ship's log. Night sea, chart contours, an amber beam that reads the far shore. */
+:root {
+  --night: #081624; --sea: #0d2236; --deep: #0a1c2d; --swell: #143049; --line: rgba(173, 214, 224, .14); --line2: rgba(173, 214, 224, .26);
+  --foam: #e9f2f1; --mist: #a9c1c7; --dim: #6f8b95; --beam: #ffc864; --beam2: #ffdb94; --green: #6fe3b4; --red: #ff8a73; --blue: #8ec9ff;
+  --serif: "Instrument Serif", Georgia, serif; --sans: "Geist", system-ui, sans-serif; --mono: "Geist Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--night); color: var(--foam); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .5; z-index: 0;
+  background-image: radial-gradient(ellipse at 18% 8%, rgba(255, 200, 100, .07), transparent 45%), radial-gradient(ellipse at 85% 30%, rgba(142, 201, 255, .06), transparent 50%); }
+main, header, footer { position: relative; z-index: 1; }
+a { color: var(--beam); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+/* bar */
+.bar { position: sticky; top: 0; z-index: 30; background: rgba(8, 22, 36, .82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.bar .wrap { display: flex; align-items: center; gap: 30px; height: 62px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--foam); font: 400 26px var(--serif); letter-spacing: .01em; }
+.brand:hover { text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+.nav { display: flex; gap: 22px; font-size: 14px; }
+.nav a { color: var(--mist); }
+.bar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.pill { font: 500 12px var(--mono); color: var(--mist); border: 1px solid var(--line2); border-radius: 999px; padding: 5px 10px; }
+
+/* buttons */
+.btn { font: 600 14px var(--sans); background: var(--beam); color: #1b1203; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; transition: transform .08s, box-shadow .2s; }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px -8px rgba(255, 200, 100, .6); }
+.btn:disabled { opacity: .35; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn.ghost { background: transparent; color: var(--foam); border: 1px solid var(--line2); }
+.btn.ghost:hover { box-shadow: none; border-color: var(--mist); }
+.btn.small { padding: 7px 12px; font-size: 13px; }
+.btn.red { background: var(--red); color: #2a0a04; }
+
+/* hero */
+.hero { padding: 54px 0 20px; }
+.kicker { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+h1 { font: 400 76px/1 var(--serif); letter-spacing: -.01em; margin: 16px 0 18px; max-width: 900px; }
+h1 em { color: var(--beam); font-style: italic; }
+.lede { font-size: 18px; color: var(--mist); max-width: 690px; margin: 0; }
+.cta { display: flex; gap: 12px; margin: 26px 0 10px; flex-wrap: wrap; }
+
+/* the chart */
+.chart { position: relative; margin-top: 34px; border: 1px solid var(--line); border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, var(--sea), var(--deep)); }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .legend { position: absolute; left: 22px; bottom: 18px; display: flex; gap: 18px; font: 500 12px var(--mono); color: var(--mist); flex-wrap: wrap; }
+.chart .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid var(--line); }
+.stats div { padding: 16px 22px; border-left: 1px solid var(--line); }
+.stats div:first-child { border-left: 0; }
+.stats b { display: block; font: 400 36px/1.1 var(--serif); }
+.stats span { font: 500 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+
+/* sections */
+section.band { padding: 74px 0; border-top: 1px solid var(--line); }
+.sh { display: grid; grid-template-columns: 1.35fr 1fr; gap: 48px; align-items: end; margin-bottom: 34px; }
+.sh h2 { font: 400 46px/1.05 var(--serif); margin: 10px 0 0; text-wrap: balance; }
+.sh h2 em { color: var(--beam); font-style: italic; }
+.sh p { margin: 0; color: var(--mist); }
+
+/* the crossing: waypoints on a route */
+.route { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+.route::before { content: ""; position: absolute; left: 4%; right: 4%; top: 22px; border-top: 2px dashed var(--line2); }
+.wp { position: relative; padding-top: 58px; }
+.wp .dot { position: absolute; top: 8px; left: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--night); border: 2px solid var(--beam); display: grid; place-items: center; font: 600 12px var(--mono); color: var(--beam); }
+.wp b { display: block; font: 400 24px/1.1 var(--serif); margin-bottom: 6px; }
+.wp p { margin: 0; font-size: 14px; color: var(--mist); }
+.wp small { display: block; margin-top: 8px; font: 500 11px var(--mono); color: var(--dim); }
+
+/* log */
+.log { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: rgba(13, 34, 54, .55); }
+.log .r { display: grid; grid-template-columns: 120px 150px 1fr 150px 130px; gap: 16px; padding: 14px 20px; border-top: 1px solid var(--line); align-items: center; font-size: 14px; }
+.log .r:first-child { border-top: 0; }
+.log .r.h { font: 500 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .1em; background: rgba(0, 0, 0, .15); }
+.log .r .mono { color: var(--mist); }
+.log .r > * { min-width: 0; }
+.lamp { display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--mono); letter-spacing: .06em; }
+.lamp::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+.lamp.FILLED, .lamp.Filled { color: var(--green); }
+.lamp.NOT_FILLED, .lamp.NotFilled { color: var(--red); }
+.lamp.Claimed { color: var(--beam); }
+.why { color: var(--mist); font-size: 13px; overflow-wrap: anywhere; }
+.more { text-align: center; padding: 14px; }
+
+/* the voyage */
+.voyage { display: grid; grid-template-columns: 1.1fr .9fr; gap: 26px; align-items: start; }
+.panel { border: 1px solid var(--line); border-radius: 18px; background: rgba(13, 34, 54, .55); padding: 24px; }
+.panel h3 { font: 400 28px/1.1 var(--serif); margin: 0 0 6px; }
+.panel p.sub { margin: 0 0 18px; color: var(--mist); font-size: 14px; }
+.step { display: grid; grid-template-columns: 34px 1fr auto; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid var(--line); }
+.step:first-of-type { border-top: 0; }
+.step .n { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line2); display: grid; place-items: center; font: 600 12px var(--mono); color: var(--mist); }
+.step.done .n { background: var(--green); border-color: var(--green); color: #052117; }
+.step.on .n { border-color: var(--beam); color: var(--beam); box-shadow: 0 0 0 4px rgba(255, 200, 100, .12); }
+.step b { display: block; font-weight: 600; }
+.step span { font-size: 13px; color: var(--mist); }
+.choice { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.choice label { font: 500 12px var(--mono); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--mist); }
+.choice input { display: none; }
+.choice input:checked + label { border-color: var(--beam); color: var(--beam); background: rgba(255, 200, 100, .08); }
+.status { margin-top: 16px; border-radius: 12px; padding: 12px 14px; background: rgba(0, 0, 0, .22); color: var(--mist); font-size: 14px; min-height: 46px; overflow-wrap: anywhere; }
+.status.good { color: var(--green); background: rgba(111, 227, 180, .08); }
+.status.bad { color: var(--red); background: rgba(255, 138, 115, .08); }
+.status.busy { color: var(--beam); background: rgba(255, 200, 100, .07); }
+.manifest { font: 13px/1.7 var(--mono); color: var(--mist); }
+.manifest .ln { display: flex; justify-content: space-between; gap: 14px; border-bottom: 1px dashed var(--line); padding: 5px 0; }
+.manifest .ln span:first-child { color: var(--dim); }
+.manifest .ln span:last-child { color: var(--foam); text-align: right; overflow-wrap: anywhere; }
+.manifest h4 { font: 500 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .12em; margin: 18px 0 6px; }
+.manifest .lamp { font-size: 13px; }
+
+/* attacks */
+.attacks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.atk { border: 1px solid var(--line); border-radius: 16px; padding: 18px; background: rgba(13, 34, 54, .45); display: flex; flex-direction: column; gap: 8px; }
+.atk b { font: 400 22px/1.15 var(--serif); }
+.atk p { margin: 0; font-size: 13px; color: var(--mist); flex: 1; }
+.atk .who { font: 500 11px var(--mono); color: var(--dim); }
+.atk .out { font: 12px var(--mono); min-height: 18px; overflow-wrap: anywhere; }
+.atk .out.good { color: var(--green); }
+.atk .out.bad { color: var(--red); }
+
+/* proof */
+.proof { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+.proof div { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; align-items: start; }
+.proof i { font: 600 11px var(--mono); color: var(--green); font-style: normal; padding-top: 3px; }
+.proof i.no { color: var(--red); }
+.proof small { color: var(--dim); }
+.proof a { font: 12px var(--mono); white-space: nowrap; }
+
+/* the same contract on every shore */
+.shores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 26px; }
+.shore { border: 1px solid var(--line); border-radius: 16px; padding: 18px; background: rgba(13, 34, 54, .45); }
+.shore small { font: 500 11px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .1em; }
+.shore b { display: block; font: 400 26px var(--serif); margin: 4px 0 6px; }
+.shore .lamp { font-size: 12px; }
+.shore.here { border-color: var(--beam); box-shadow: inset 0 0 0 1px rgba(255, 200, 100, .35); }
+table.addr { width: 100%; border-collapse: collapse; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; font-size: 14px; }
+table.addr td { padding: 12px 18px; border-top: 1px solid var(--line); vertical-align: top; }
+table.addr tr:first-child td { border-top: 0; }
+table.addr td:first-child { width: 260px; color: var(--mist); }
+table.addr small { color: var(--dim); }
+
+footer { padding: 40px 0 60px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+@media (max-width: 920px) {
+  h1 { font-size: 48px; } .sh { grid-template-columns: 1fr; } .sh h2 { font-size: 38px; }
+  .route, .voyage, .attacks, .proof, .shores { grid-template-columns: 1fr; } .route::before { display: none; }
+  .nav, .bar .pill { display: none; } .stats { grid-template-columns: repeat(2, 1fr); }
+  .log .r { grid-template-columns: 1fr 110px; } .log .r > :nth-child(2), .log .r > :nth-child(3), .log .r > :nth-child(4) { display: none; }
+}
+
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M13 29 L14.5 12 H17.5 L19 29 Z" fill="#e9f2f1"/><rect x="13.5" y="8" width="5" height="4" rx="1" fill="#ffc864"/><path d="M12.5 8 L16 4.5 L19.5 8 Z" fill="#e9f2f1"/><path d="M19 10 L31 6 V14 Z" fill="#ffc864" opacity=".55"/><path d="M8 29 H24" stroke="#8ec9ff" stroke-width="2" stroke-linecap="round"/></svg>
+      Farshore
+    </a>
+    <nav class="nav"><a href="#crossing">The crossing</a><a href="#log">Log</a><a href="#voyage">Sail one</a><a href="#cheat">Try to cheat</a><a href="#proof">Proof</a><a href="#shores">Every shore</a></nav>
+    <div class="right"><span class="pill" id="bal">GenLayer Bradbury</span><button class="btn small" id="connect">Connect wallet</button></div>
+  </div>
+</header>
+
+<main>
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="kicker">Open Intents Framework &middot; Internet Court &middot; GenLayer</div>
+    <h1>Settle on this shore.<br/>Prove it on the <em>far one.</em></h1>
+    <p class="lede">An intent can ask for a payment on a chain no bridge reaches. Farshore is the Open Intents Framework oracle
+      for those chains: GenLayer validators look across, read the far chain's own public record, and when the payment is
+      exactly what the order asked, the court writes the proof that releases the solver's pay.</p>
+    <div class="cta"><a class="btn" href="#voyage">Sail an order</a><a class="btn ghost" href="#log">Read the log</a><a class="btn ghost" href="https://github.com/JspIIV/farshore" target="_blank" rel="noopener">Code</a></div>
+
+    <div class="chart">
+      <svg viewBox="0 0 1200 420" role="img" aria-label="A lighthouse on GenLayer Chain looking across the sea to Stellar and Base Sepolia">
+        <defs>
+          <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffdb94" stop-opacity=".75"/><stop offset="1" stop-color="#ffc864" stop-opacity="0"/></linearGradient>
+          <radialGradient id="glow"><stop offset="0" stop-color="#ffdb94" stop-opacity=".9"/><stop offset="1" stop-color="#ffc864" stop-opacity="0"/></radialGradient>
+        </defs>
+        <g fill="none" stroke="rgba(173,214,224,.10)" stroke-width="1">
+          <path d="M0 90 C200 70 380 120 600 96 S1000 70 1200 92"/><path d="M0 140 C220 118 420 168 620 142 S1010 120 1200 140"/>
+          <path d="M0 196 C240 176 400 224 640 198 S1000 176 1200 196"/><path d="M0 252 C210 232 430 280 620 254 S1010 232 1200 254"/>
+          <path d="M0 308 C230 290 410 336 640 310 S990 288 1200 310"/><path d="M0 360 C200 344 440 386 620 362 S1010 342 1200 362"/>
+        </g>
+        <!-- this shore -->
+        <path d="M0 0 H170 C200 70 150 130 205 190 C250 240 190 300 230 420 H0 Z" fill="#102a40" stroke="rgba(173,214,224,.25)"/>
+        <text x="24" y="40" fill="#6f8b95" font-family="Geist Mono" font-size="12" letter-spacing="2">THIS SHORE</text>
+        <text x="24" y="62" fill="#e9f2f1" font-family="Instrument Serif" font-size="24">GenLayer Chain</text>
+        <rect x="24" y="300" width="150" height="70" rx="8" fill="#0a1c2d" stroke="rgba(255,200,100,.45)"/>
+        <text x="36" y="324" fill="#ffc864" font-family="Geist Mono" font-size="11">OIF SETTLER</text>
+        <text x="36" y="344" fill="#e9f2f1" font-family="Geist Mono" font-size="11">0x1CC9...d0a8</text>
+        <text x="36" y="360" fill="#6f8b95" font-family="Geist Mono" font-size="10">inputs held here</text>
+        <!-- lighthouse -->
+        <g transform="translate(196 196)">
+          <circle r="60" fill="url(#glow)" opacity=".5"><animate attributeName="opacity" values=".35;.6;.35" dur="4s" repeatCount="indefinite"/></circle>
+          <g><animateTransform attributeName="transform" type="rotate" values="-14;14;-14" dur="9s" repeatCount="indefinite"/>
+            <path d="M0 0 L980 -70 L980 70 Z" fill="url(#beam)"/></g>
+          <path d="M-12 70 L-7 -10 H7 L12 70 Z" fill="#e9f2f1"/><rect x="-9" y="-24" width="18" height="14" rx="2" fill="#ffc864"/><path d="M-12 -24 L0 -36 L12 -24 Z" fill="#e9f2f1"/>
+        </g>
+        <text x="150" y="300" fill="#ffc864" font-family="Geist Mono" font-size="11">INTERNET COURT</text>
+        <!-- far shore -->
+        <path d="M1200 0 H1020 C985 80 1050 140 1000 210 C960 270 1030 330 990 420 H1200 Z" fill="#102a40" stroke="rgba(173,214,224,.25)"/>
+        <text x="1176" y="40" text-anchor="end" fill="#6f8b95" font-family="Geist Mono" font-size="12" letter-spacing="2">THE FAR SHORE</text>
+        <text x="1176" y="62" text-anchor="end" fill="#e9f2f1" font-family="Instrument Serif" font-size="24">no bridge reaches</text>
+        <g font-family="Geist Mono" font-size="11">
+          <rect x="1040" y="150" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="170" fill="#8ec9ff">STELLAR TESTNET</text><text x="1052" y="185" fill="#6f8b95">read via Horizon</text>
+          <rect x="1040" y="214" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="234" fill="#8ec9ff">BASE SEPOLIA</text><text x="1052" y="249" fill="#6f8b95">read via Blockscout</text>
+        </g>
+        <!-- the voyage -->
+        <path id="lane" d="M240 330 C470 390 720 330 1000 280" fill="none" stroke="rgba(233,242,241,.35)" stroke-width="1.5" stroke-dasharray="6 7"/>
+        <g><animateMotion dur="11s" repeatCount="indefinite" rotate="auto"><mpath href="#lane"/></animateMotion>
+          <path d="M-14 -3 H12 L6 6 H-10 Z" fill="#e9f2f1"/><path d="M-2 -3 V-20 L9 -6 Z" fill="#ffc864"/></g>
+      </svg>
+      <div class="legend"><span><i style="background:#ffc864"></i>the court's reading</span><span><i style="background:#8ec9ff"></i>far-chain record</span><span><i style="background:#e9f2f1"></i>an order underway</span></div>
+    </div>
+    <div class="stats" style="border:1px solid var(--line);border-top:0;border-radius:0 0 18px 18px;margin-top:-1px">
+      <div><b id="s-claims">..</b><span>claims logged</span></div>
+      <div><b id="s-filled">..</b><span>fills proven</span></div>
+      <div><b id="s-not">..</b><span>refused</span></div>
+      <div><b>2</b><span>far chains read</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="crossing">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">The crossing</div>X</div>
+      <p>OIF already knows how to pay a solver once an oracle proves the fill. It does not know how to see a chain no messaging layer reaches. That is the only part Farshore adds.</p></div>
+    <div class="route">
+      <div class="wp"><div class="dot">1</div><b>Open</b><p>The user locks inputs in OIF's settler and asks: pay this amount, to this account, on that chain.</p><small>InputSettlerEscrow.open</small></div>
+      <div class="wp"><div class="dot">2</div><b>Pay across</b><p>A solver pays on the far chain. The memo is a hash of the order and the solver itself.</p><small>memoFor(order, solver)</small></div>
+      <div class="wp"><div class="dot">3</div><b>Claim</b><p>The solver tells the oracle which transaction filled the order. A hash, nothing else.</p><small>FarshoreOracle.claim</small></div>
+      <div class="wp"><div class="dot">4</div><b>The light</b><p>Validators read that transaction from the chain's own API and agree, in code, on FILLED or NOT_FILLED.</p><small>Farshore.verify</small></div>
+      <div class="wp"><div class="dot">5</div><b>Paid, or refunded</b><p>The court's call writes OIF's proof; the solver finalises. Unfilled orders refund after expiry.</p><small>finalise / refund</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="log">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">The log</div><h2>Every claim the oracle has heard.</h2></div>
+      <p>Read live from the FarshoreOracle on GenLayer Chain and the court on GenLayer. Each line is a solver saying "this transaction filled that order", and what the light saw.</p></div>
+    <div class="log" id="logrows"><div class="r h"><span>Claim</span><span>Far chain</span><span>What the court saw</span><span>Amount</span><span>Verdict</span></div><div class="more">Reading the log...</div></div>
+  </div>
+</section>
+
+<section class="band" id="voyage">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Sail one</div><h2>Open an order. Fill it yourself. Watch the light <em>decide.</em></h2></div>
+      <p>You play the user with MetaMask on GenLayer Bradbury. Your browser plays the solver with a throwaway Stellar testnet key, funded by Stellar's friendbot. Pay in full, or short it and see the court refuse.</p></div>
+    <div class="voyage">
+      <div class="panel">
+        <h3>The voyage</h3>
+        <p class="sub">Each step is a real transaction. Signing on GenLayer costs a little test GEN; the Stellar side costs nothing.</p>
+        <div class="step" data-i="0"><div class="n">1</div><div><b>Fit out</b><span>Mint 20 test dollars, and make two Stellar testnet accounts in this browser: yours to be paid, the solver's to pay.</span></div><button class="btn small" id="b-fit">Fit out</button></div>
+        <div class="step" data-i="1"><div class="n">2</div><div><b>Open the order</b><span>Lock 10 tUSD in OIF's settler for 2.5 XLM to your Stellar account. Fill within 20 minutes.</span></div><button class="btn small" id="b-open" disabled>Open</button></div>
+        <div class="step" data-i="2"><div class="n">3</div><div><b>Pay across</b><span>The solver key pays on Stellar with the memo for this order and your address.</span>
+          <div class="choice"><input type="radio" name="pay" id="p-full" value="25000000" checked><label for="p-full">pay 2.5 XLM</label><input type="radio" name="pay" id="p-short" value="24000000"><label for="p-short">short it: 2.4 XLM</label></div></div><button class="btn small" id="b-pay" disabled>Pay</button></div>
+        <div class="step" data-i="3"><div class="n">4</div><div><b>Claim the fill</b><span>Tell the oracle which Stellar transaction filled the order.</span></div><button class="btn small" id="b-claim" disabled>Claim</button></div>
+        <div class="step" data-i="4"><div class="n">5</div><div><b>Ask the lighthouse</b><span>Internet Court reads the transaction from Horizon. A few minutes; it reports when final.</span></div><button class="btn small" id="b-ask" disabled>Ask</button></div>
+        <div class="step" data-i="5"><div class="n">6</div><div><b>Collect</b><span>FILLED: finalise on OIF's settler and the 10 tUSD come to you as the solver. NOT_FILLED: refund once the order expires.</span></div><button class="btn small" id="b-collect" disabled>Collect</button></div>
+        <div class="status" id="status">Connect MetaMask to begin. The page adds GenLayer Bradbury (chain 4221).</div>
+      </div>
+      <div class="panel manifest" id="manifest">
+        <h3 style="font-family:var(--serif);font-weight:400;font-size:28px;color:var(--foam);margin:0 0 6px">The manifest</h3>
+        <p class="sub" style="font-family:var(--sans)">What is on chain for your voyage, read back after every step.</p>
+        <div id="mf">No voyage yet.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="cheat">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Try to cheat</div><h2>Each attack runs against the <em>live</em> contracts.</h2></div>
+      <p>Every card sends a real <code>eth_call</code> to GenLayer Chain from the address that would try it, on orders from the proof. Nothing is spent; the contracts answer.</p></div>
+    <div class="attacks" id="attacks"></div>
+  </div>
+</section>
+
+<section class="band" id="proof">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">The proof</div><h2 id="proof-title">Every way across, on chain.</h2></div>
+      <p>One script, <code>scripts/prove.mjs</code>: real orders on OIF's settler, real payments on Stellar testnet and Base Sepolia, real Internet Court rounds, balances counted to the unit.</p></div>
+    <div class="proof" id="proof-list"></div>
+  </div>
+</section>
+
+<section class="band" id="shores">
+  <div class="wrap">
+    <div class="sh"><div><div class="kicker">Every shore</div><h2>OIF's settler: the same code at the <em>same address.</em></h2></div>
+      <p>The settler on GenLayer Chain is rebuilt from OIF's source with OIF's exact compiler input and sent through the same deterministic deployment proxy, so it lands where OIF's own deployments are. <code>scripts/verify_evm.mjs</code> compares all four.</p></div>
+    <div class="shores">
+      <div class="shore here"><small>this shore</small><b>GenLayer Chain</b><span class="lamp FILLED">MATCH</span></div>
+      <div class="shore"><small>OIF mainnet</small><b>Ethereum</b><span class="lamp FILLED">MATCH</span></div>
+      <div class="shore"><small>OIF mainnet</small><b>Base</b><span class="lamp FILLED">MATCH</span></div>
+      <div class="shore"><small>OIF testnet</small><b>Base Sepolia</b><span class="lamp FILLED">MATCH</span></div>
+    </div>
+    <table class="addr" id="addr"></table>
+  </div>
+</section>
+</main>
+
+<footer><div class="wrap"><span>Farshore &middot; MIT &middot; GenLayer Bradbury, Stellar testnet and Base Sepolia; test money only.</span><span><a href="https://github.com/JspIIV/farshore" target="_blank" rel="noopener">github.com/JspIIV/farshore</a></span></div></footer>
+<script type="module">
+// Bundled builds, one file each, so the module CDN does not rate-limit the page.
+import { createClient } from "https://esm.sh/genlayer-js@2.0.0-rc.2?bundle";
+import { testnetBradbury } from "https://esm.sh/genlayer-js@2.0.0-rc.2/chains?bundle";
+import { BrowserProvider, Contract, Interface, AbiCoder, parseUnits, formatUnits, ZeroHash } from "https://esm.sh/ethers@6.13.4";
+import StellarSdk from "https://esm.sh/@stellar/stellar-sdk@14.6.1?bundle";
+import { ChainProvider, CHAIN_RPCS } from "./rpc.js";
+import { output, order, orderTuple, outputTuple, ident } from "./oif.js";
+const { Keypair, Horizon, TransactionBuilder, Networks, Operation, Asset, Memo, BASE_FEE } = StellarSdk;
+
+const DEP = {"oracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC", "input_settler": "0x1CC9260E285C2C8AC8D2E7102F3978056Ec1d0a8", "test_usd": "0xd0dD2416Bba75578703532D70674fb6aCAfDEC0e", "court": "0x073885844B08A7F482a37666D145D377bf558d33"};
+const PROOF = {"passed": 24, "total": 24, "accounts": {"user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258", "solver": "0x0b57877ec84D96b672CD47D8Ea4424283fDB9F6C", "stranger": "0xBdB591cDdd787956a4fB17a8f4C325366525EfD2", "stellar_user": "GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO", "stellar_solver": "GBPJ3TUXON62K4GSBI2ZQAS2AFYF5ZWTV4DKAIKXJCYKXJUGG5QV3I7Z"}, "orders": {"A": {"orderId": "0x7461ccd5909bd27c2d290d149f04e82d41458f77ebdfc0cf6fb88a6802b53e99", "order": {"user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258", "nonce": "1794834219000", "originChainId": 4221, "expires": 1794841419, "fillDeadline": 1794837819, "inputOracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC", "inputs": [["1192401688798173986718375825778811371409907772430", "25000000000000000000"]], "outputs": [{"oracle": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "settler": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "chainId": 4221, "token": "0x7374656c6c61722d746573746e657400584c4d00000000000000000000000000", "amount": "25000000", "recipient": "0xc558eb92b30df72fb94b1bf99274a3b266ca769ced75b535fa6780ae7d0d37ef", "callbackData": "0x", "context": "0x"}]}, "out": {"oracle": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "settler": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "chainId": 4221, "token": "0x7374656c6c61722d746573746e657400584c4d00000000000000000000000000", "amount": "25000000", "recipient": "0xc558eb92b30df72fb94b1bf99274a3b266ca769ced75b535fa6780ae7d0d37ef", "callbackData": "0x", "context": "0x"}, "far_tx": "7d2243085eed42e8482dfd732fe43cd6e27d4c5f8fd61e6d3650dd28d5332db0", "claim": "0xadd3b4141fc07910c5395391522a7ec1787a4ce8b1d8aeeb54203f86fdf99349"}, "B": {"orderId": "0xd1f8f942417a25800dc23c3b14e1f9ec1dfc48d563ea5ff7f3077948940989e2", "order": {"user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258", "nonce": "1794834219001", "originChainId": 4221, "expires": 1794841422, "fillDeadline": 1794837822, "inputOracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC", "inputs": [["1192401688798173986718375825778811371409907772430", "10000000000000000000"]], "outputs": [{"oracle": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "settler": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "chainId": 4221, "token": "0x626173652d7365706f6c69610000000045544800000000000000000000000000", "amount": "100000000000000", "recipient": "0x00000000000000000000000080519c53f10d731e4ff83a7d9acd69cf98da6258", "callbackData": "0x", "context": "0x"}]}, "out": {"oracle": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "settler": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "chainId": 4221, "token": "0x626173652d7365706f6c69610000000045544800000000000000000000000000", "amount": "100000000000000", "recipient": "0x00000000000000000000000080519c53f10d731e4ff83a7d9acd69cf98da6258", "callbackData": "0x", "context": "0x"}, "far_tx": "9613df4ead896b6f8985e261074b1a979ac159f188baeb5fd2c7fd0691707eba", "claim": "0x7a3323859003b456d323f89c9c7de8a55acd5a98799458b1abf92b3e34514998"}, "C": {"orderId": "0x12e8b863c60aad087291f2c19441883f8fd121df184d74c05369957079d35204", "order": {"user": "0x80519c53f10D731e4FF83A7d9ACd69cF98da6258", "nonce": "1794834219002", "originChainId": 4221, "expires": 1794835124, "fillDeadline": 1794834824, "inputOracle": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC", "inputs": [["1192401688798173986718375825778811371409907772430", "30000000000000000000"]], "outputs": [{"oracle": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "settler": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "chainId": 4221, "token": "0x7374656c6c61722d746573746e657400584c4d00000000000000000000000000", "amount": "30000000", "recipient": "0xc558eb92b30df72fb94b1bf99274a3b266ca769ced75b535fa6780ae7d0d37ef", "callbackData": "0x", "context": "0x"}]}, "out": {"oracle": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "settler": "0x0000000000000000000000007780d9e1e78189032a4bb7f54380244f8d6db3ac", "chainId": 4221, "token": "0x7374656c6c61722d746573746e657400584c4d00000000000000000000000000", "amount": "30000000", "recipient": "0xc558eb92b30df72fb94b1bf99274a3b266ca769ced75b535fa6780ae7d0d37ef", "callbackData": "0x", "context": "0x"}, "far_tx": "433a9e38d0a68b2bf926d7a5cf79db12f33269c9298e219ca23f6f237e6a589b", "claim": "0xf619545f90066d042f7e638085215743afd60119113db04ffbcbd05a348dd012"}}, "checks": [{"name": "Three OIF orders are open on the unmodified InputSettlerEscrow, their inputs held by it", "ok": true, "note": "", "tx": "0x097ff5e60138cc50d5f6c4f4fe376c6eb7619e890b57f74c98995ad3c1670153", "gl": false}, {"name": "The solver pays on Stellar testnet and Base Sepolia, each payment carrying memoFor(order, solver)", "ok": true, "note": "stellar 7d2243085e, base 9613df4ead", "tx": null, "gl": false}, {"name": "A claim must name this oracle as the output's oracle and settler", "ok": true, "note": "reverted: Farshore:not-this-oracle", "tx": null, "gl": false}, {"name": "A claim cannot carry a callback the far chain would never run", "ok": true, "note": "reverted: Farshore:no-callback", "tx": null, "gl": false}, {"name": "The same claim cannot be made twice", "ok": true, "note": "reverted: Farshore:claimed", "tx": null, "gl": false}, {"name": "Nobody but the court can settle a claim", "ok": true, "note": "reverted: Farshore:only-court", "tx": null, "gl": false}, {"name": "The solver cannot finalise on OIF before the court has proven the fill", "ok": true, "note": "reverted: NotProven", "tx": null, "gl": false}, {"name": "The user cannot be refunded before the order expires", "ok": true, "note": "reverted: TimestampNotPassed()", "tx": null, "gl": false}, {"name": "A: a stranger claiming the solver's Stellar payment as its own gets NOT_FILLED: the memo names the solver", "ok": true, "note": "the memo binds this payment to another order or another solver", "tx": "0x5688530eced1a360dbdd9261bf92c9caf2ba1599b549e89e3bbe88dcf31bd7f7", "gl": true}, {"name": "B: the Base Sepolia payment is FILLED, read by the court from Blockscout", "ok": true, "note": "pays 100000000000000 wei to 0x80519c53f10d731e4ff83a7d9acd69cf98da6258", "tx": "0xfc7629dd6dcba4c2d5bd1be6fe8839c3f37aa6731ad0aaff4bd0aa4ccd6adf55", "gl": true}, {"name": "C: a payment of 2.9 XLM against an order for 3 is NOT_FILLED", "ok": true, "note": "no operation pays exactly 3.0000000 XLM to GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO", "tx": "0x003b9aca237c77d21fb892db168989d4e1afd2692934b309347038ed5857d06d", "gl": true}, {"name": "F: a transaction the network does not show changes nothing inside the grace period", "ok": true, "note": "FINALIZED", "tx": "0x552bfb59f7ee68f1d44e75e6f7187e61b81e774ae1d34006aa2ae41905a14646", "gl": true}, {"name": "A: the solver claims the same payment and it is FILLED, read by the court from Horizon", "ok": true, "note": "pays 2.5000000 XLM to GDCVR24SWMG7OL5ZJMN7TETUUOZGNSTWTTWXLNJV7JTYBLT5BU366CLO", "tx": "0x07c31f9d3fdee94ca8603eff164c2b2faddd7d5ba70af717d65a34f34850850f", "gl": true}, {"name": "The court's own call wrote OIF's attestation: isProven holds for A's fill description", "ok": true, "note": "", "tx": null, "gl": false}, {"name": "A filled payment cannot be claimed again, for any order", "ok": true, "note": "reverted: Farshore:tx-used", "tx": null, "gl": false}, {"name": "The court cannot settle a claim twice", "ok": true, "note": "reverted: Farshore:not-claimed", "tx": null, "gl": false}, {"name": "Finalising with a timestamp other than the proven one fails", "ok": true, "note": "reverted: NotProven", "tx": null, "gl": false}, {"name": "Nobody but the solver can finalise its fill", "ok": true, "note": "reverted: NotOrderOwner()", "tx": null, "gl": false}, {"name": "A: the solver finalises on OIF's settler and is paid the order's inputs", "ok": true, "note": "+25.0 tUSD", "tx": "0x8e757a0d741f7f6687da40b2023fda3f953a4c0414a8e3ee5d68bdf86342e3ab", "gl": false}, {"name": "B: the solver finalises on OIF's settler and is paid the order's inputs", "ok": true, "note": "+10.0 tUSD", "tx": "0x2b585ec868b66fd02110c60de0de45bc14f2ddba0ff4539affd2aafe6a8058cc", "gl": false}, {"name": "A finalised order cannot be finalised again", "ok": true, "note": "reverted: InvalidOrderStatus()", "tx": null, "gl": false}, {"name": "C: after expiry anybody triggers OIF's refund and the inputs go back to the user", "ok": true, "note": "", "tx": "0x08c380b8308f0280bc28e723a435e0c332d90a6a7e8237ecbd7571e41ce4089c", "gl": false}, {"name": "F: after the grace, a transaction the network still does not show is NOT_FILLED", "ok": true, "note": "the network has no such transaction", "tx": "0xf0ed4036f5829895dd191194389294af4c652c6616c6520400ed0a261fe49f7d", "gl": true}, {"name": "The money, to the unit: the user paid 35 tUSD for the two filled orders and got the unfilled one back; the solver got exactly 35; nothing is left in the settler", "ok": true, "note": "{\"user\":\"-35.0\",\"solver\":\"35.0\",\"settler\":\"0.0\"}", "tx": null, "gl": false}]};
+const RPC = "https://rpc-bradbury.genlayer.com";
+const EXPLORER = "https://scan.bradbury.genlayer.com";
+const CHAIN_EXPLORER = "https://scan.testnet-chain.genlayer.com";
+const STELLAR_TX = "https://stellar.expert/explorer/testnet/tx/";
+const CHAIN_ID_HEX = "0x107d";
+const CHAIN_PARAMS = { chainId: CHAIN_ID_HEX, chainName: "GenLayer Bradbury", nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 }, rpcUrls: CHAIN_RPCS, blockExplorerUrls: [CHAIN_EXPLORER] };
+const PI = "tuple(bytes32 oracle,bytes32 settler,uint256 chainId,bytes32 token,uint256 amount,bytes32 recipient,bytes callbackData,bytes context)";
+const ORDER_T = `tuple(address user,uint256 nonce,uint256 originChainId,uint32 expires,uint32 fillDeadline,address inputOracle,uint256[2][] inputs,${PI}[] outputs)`;
+const SETTLER_ABI = [
+  `function open(${ORDER_T} order)`, `function orderIdentifier(${ORDER_T} order) view returns (bytes32)`,
+  `function finalise(${ORDER_T} order,tuple(uint32 timestamp,bytes32 solver)[] solveParams,bytes32 destination,bytes call)`,
+  `function refund(${ORDER_T} order)`, "function orderStatus(bytes32) view returns (uint8)",
+  "error NotProven()", "error NotOrderOwner()", "error InvalidOrderStatus()", "error TimestampNotPassed()", "error TimestampPassed()", "error FilledTooLate(uint32,uint32)",
+];
+const ORACLE_ABI = [
+  "function memoFor(bytes32,bytes32) view returns (bytes32)", `function claimIdOf(bytes32,${PI},bytes32,bytes32) view returns (bytes32)`,
+  `function claim(bytes32,${PI},bytes32) returns (bytes32)`, "function settle(bytes32,bool,uint32,bytes32)",
+  "function claimCount() view returns (uint256)", "function claimIds(uint256) view returns (bytes32)",
+  "function claimFacts(bytes32) view returns (uint8 status,bytes32 orderId,bytes32 solver,bytes32 txHash,bytes32 token,uint256 amount,bytes32 recipient,uint32 filledAt)",
+];
+const USD_ABI = ["function mint(address,uint256)", "function approve(address,uint256) returns (bool)", "function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)"];
+const CLAIM = ["None", "Claimed", "Filled", "NotFilled"], ORDER = ["None", "Deposited", "Claimed", "Refunded"];
+
+const chain = new ChainProvider();
+const oracle = new Contract(DEP.oracle, ORACLE_ABI, chain);
+const settler = new Contract(DEP.input_settler, SETTLER_ABI, chain);
+const usd = new Contract(DEP.test_usd, USD_ABI, chain);
+const errs = new Interface([...SETTLER_ABI, ...ORACLE_ABI].filter((x) => x.startsWith("error")));
+const reader = createClient({ chain: testnetBradbury, endpoint: RPC });
+const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+let account = null, eip1193 = null;
+const realFetch = window.fetch.bind(window);
+// The SDK quotes fees with an eth_call that has a gas price and no sender, which the node refuses from the zero address.
+window.fetch = async (input, init) => {
+  if (account && init && typeof init.body === "string" && init.body.includes('"eth_call"')) {
+    const body = JSON.parse(init.body);
+    for (const req of Array.isArray(body) ? body : [body]) if (req.method === "eth_call" && req.params?.[0] && !req.params[0].from) req.params[0].from = account;
+    return realFetch(input, { ...init, body: JSON.stringify(body) });
+  }
+  return realFetch(input, init);
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const short = (a, n = 6) => (a ? `${String(a).slice(0, n)}...${String(a).slice(-4)}` : "");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const nowS = () => Math.floor(Date.now() / 1000);
+const tag = (raw) => { const b = raw.replace(/^0x/, ""); let s = ""; for (let i = 0; i < b.length; i += 2) { const c = parseInt(b.slice(i, i + 2), 16); if (c) s += String.fromCharCode(c); } return s; };
+const amountOf = (network, amount) => network.startsWith("stellar") ? (Number(amount) / 1e7).toFixed(7).replace(/\.?0+$/, "") + " XLM" : (Number(amount) / 1e18).toString() + " ETH";
+const glLink = (h, t) => `<a href="${EXPLORER}/tx/${h}" target="_blank" rel="noopener">${t || short(h)}</a>`;
+const chLink = (h, t) => `<a href="${CHAIN_EXPLORER}/tx/${h}" target="_blank" rel="noopener">${t || short(h)}</a>`;
+const farLink = (network, tx) => network.startsWith("stellar") ? `<a href="${STELLAR_TX}${tx}" target="_blank" rel="noopener">${short(tx)}</a>` : `<a href="https://base-sepolia.blockscout.com/tx/0x${tx}" target="_blank" rel="noopener">${short(tx)}</a>`;
+const store = { get: (k) => { try { return JSON.parse(localStorage.getItem("farshore." + k)); } catch { return null; } }, set: (k, v) => localStorage.setItem("farshore." + k, JSON.stringify(v, (key, val) => typeof val === "bigint" ? val.toString() : val)) };
+function say(html, tone = "") { const s = $("status"); s.innerHTML = html; s.className = "status " + tone; }
+function reasonOf(e) {
+  const seen = new Set(), texts = [];
+  (function walk(x, d) { if (x == null || d > 5) return; if (typeof x === "string") { texts.push(x); return; } if (typeof x !== "object" || seen.has(x)) return; seen.add(x);
+    for (const k of Object.getOwnPropertyNames(x)) { try { walk(x[k], d + 1); } catch {} } })(e, 0);
+  for (const t of texts) { const m = t.match(/Farshore:[\w-]+/); if (m) return m[0]; }
+  for (const t of texts) { const m = t.match(/0x[0-9a-fA-F]{8,}/g); if (m) for (const d of m) { try { const p = errs.parseError(d); if (p) return p.name; } catch {} } }
+  if (e?.code === "ACTION_REJECTED" || e?.code === 4001) return "Rejected in the wallet.";
+  if (texts.some((t) => /-32017|Rate Limit/i.test(t))) return "The public RPC is rate limiting this browser; try again in a few seconds.";
+  return (e?.shortMessage || e?.message || String(e)).slice(0, 200);
+}
+
+// ------------------------------------------------------------------ wallet
+async function ensureWallet() {
+  eip1193 = window.ethereum;
+  if (!eip1193) throw new Error("No wallet found. Reading needs none; to sail, open this page in a browser with MetaMask.");
+  if (!account) { const a = await eip1193.request({ method: "eth_requestAccounts" }); account = a && a[0]; $("connect").textContent = short(account); }
+  const cur = await eip1193.request({ method: "eth_chainId" });
+  if (String(cur).toLowerCase() !== CHAIN_ID_HEX) {
+    try { await eip1193.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID_HEX }] }); }
+    catch (err) { if (err && (err.code === 4902 || err.code === -32603)) await eip1193.request({ method: "wallet_addEthereumChain", params: [CHAIN_PARAMS] }); else throw err; }
+  }
+  return await new BrowserProvider(eip1193).getSigner();
+}
+async function balance() { if (account) $("bal").textContent = formatUnits(await usd.balanceOf(account), 18).replace(/\.0$/, "") + " tUSD"; }
+$("connect").onclick = async () => { try { await ensureWallet(); say("Connected " + short(account) + " on GenLayer Bradbury. Fit out to begin.", "good"); balance(); draw(); } catch (e) { say(reasonOf(e), "bad"); } };
+
+// ------------------------------------------------------------------ the voyage
+function stellarKey(name) {
+  let s = store.get("stellar." + name);
+  if (!s) { s = Keypair.random().secret(); store.set("stellar." + name, s); }
+  return Keypair.fromSecret(s);
+}
+async function funded(kp) {
+  try { await horizon.loadAccount(kp.publicKey()); return true; }
+  catch { const r = await fetch("https://friendbot.stellar.org/?addr=" + kp.publicKey()); return r.ok; }
+}
+const rawKey = (kp) => "0x" + Array.from(kp.rawPublicKey()).map((b) => b.toString(16).padStart(2, "0")).join("");
+const voyage = () => store.get("voyage");
+function stage() {
+  const v = voyage();
+  if (!v) return store.get("fitted") ? 1 : 0;
+  if (v.collected) return 6;
+  if (v.claimStatus === "Filled" || v.claimStatus === "NotFilled") return 5;
+  if (v.claimId) return 4;
+  if (v.farTx) return 3;
+  return 2;
+}
+function drawSteps() {
+  const s = stage();
+  document.querySelectorAll(".step").forEach((el) => { const i = Number(el.dataset.i); el.className = "step" + (i < s ? " done" : i === s ? " on" : ""); });
+  $("b-fit").disabled = s !== 0 && s !== 6; $("b-open").disabled = s !== 1 && s !== 6;
+  $("b-pay").disabled = s !== 2; $("b-claim").disabled = s !== 3; $("b-ask").disabled = s !== 4;
+  const v = voyage();
+  $("b-collect").disabled = !(s === 5 && (v.claimStatus === "Filled" || nowS() > v.order.expires));
+  $("b-collect").textContent = s === 5 && v?.claimStatus === "NotFilled" ? (nowS() > v.order.expires ? "Refund" : "Refund after expiry") : "Collect";
+}
+async function draw() {
+  drawSteps();
+  const v = voyage();
+  if (!v) { $("mf").innerHTML = "No voyage yet."; return; }
+  let os = "", cs = "", ruling = null;
+  try { os = ORDER[Number(await settler.orderStatus(v.orderId))]; } catch {}
+  if (v.claimId) {
+    try { const f = await oracle.claimFacts(v.claimId); cs = CLAIM[Number(f[0])]; v.claimStatus = cs; v.filledAt = Number(f[7]); store.set("voyage", v); } catch {}
+    try { const r = JSON.parse(await reader.readContract({ address: DEP.court, functionName: "ruling", args: [v.claimId] })); if (r.verdict) ruling = r; } catch {}
+  }
+  const left = v.order.fillDeadline - nowS();
+  $("mf").innerHTML = `
+    <h4>The order, on OIF's settler</h4>
+    <div class="ln"><span>order id</span><span>${short(v.orderId, 10)}</span></div>
+    <div class="ln"><span>locks</span><span>10 tUSD</span></div>
+    <div class="ln"><span>asks for</span><span>2.5 XLM on Stellar testnet</span></div>
+    <div class="ln"><span>to</span><span>${short(v.userG, 8)}</span></div>
+    <div class="ln"><span>fill by</span><span>${left > 0 ? Math.floor(left / 60) + " min left" : "deadline passed"}</span></div>
+    <div class="ln"><span>status</span><span>${esc(os || "...")}</span></div>
+    ${v.farTx ? `<h4>Across the water</h4>
+    <div class="ln"><span>solver paid</span><span>${(Number(v.paid) / 1e7).toFixed(1)} XLM</span></div>
+    <div class="ln"><span>transaction</span><span>${farLink("stellar", v.farTx)}</span></div>
+    <div class="ln"><span>memo</span><span>${short(v.memo, 10)}</span></div>` : ""}
+    ${v.claimId ? `<h4>The claim, on the FarshoreOracle</h4>
+    <div class="ln"><span>claim id</span><span>${short(v.claimId, 10)}</span></div>
+    <div class="ln"><span>status</span><span><span class="lamp ${cs}">${esc(cs || "...")}</span></span></div>` : ""}
+    ${ruling ? `<h4>What the lighthouse saw</h4>
+    <div class="ln"><span>verdict</span><span><span class="lamp ${ruling.verdict}">${ruling.verdict}</span></span></div>
+    <div class="ln"><span>why</span><span>${esc(ruling.why)}</span></div>
+    ${ruling.filled_at ? `<div class="ln"><span>filled at</span><span>${new Date(ruling.filled_at * 1000).toISOString().replace(".000Z", "Z")}</span></div>` : ""}` : ""}`;
+}
+
+$("b-fit").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    say("Making and funding two Stellar testnet accounts in this browser ...", "busy");
+    const u = stellarKey("user"), sol = stellarKey("solver");
+    if (!(await funded(u)) || !(await funded(sol))) throw new Error("Stellar's friendbot did not fund the accounts; try again in a minute.");
+    say("Minting 20 test dollars and letting OIF's settler take them (two wallet steps) ...", "busy");
+    const t = new Contract(DEP.test_usd, USD_ABI, s);
+    if ((await usd.balanceOf(account)) < parseUnits("10", 18)) await (await t.mint(account, parseUnits("20", 18))).wait();
+    if ((await usd.allowance(account, DEP.input_settler)) < parseUnits("10", 18)) await (await t.approve(DEP.input_settler, parseUnits("1000", 18))).wait();
+    store.set("fitted", true); store.set("voyage", null);
+    say(`Fitted out. Your Stellar account ${short(u.publicKey(), 8)} will be paid; the solver ${short(sol.publicKey(), 8)} will pay.`, "good"); balance(); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+$("b-open").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    const u = stellarKey("user");
+    const t0 = (await chain.getBlock("latest")).timestamp;
+    const out = output({ oracle: DEP.oracle, network: "stellar-testnet", asset: "XLM", amount: 25_000_000n, recipient: rawKey(u) });
+    const o = order({ user: account, nonce: BigInt(Date.now()), inputToken: DEP.test_usd, inputAmount: parseUnits("10", 18), oracle: DEP.oracle, outputs: [out], fillDeadline: t0 + 1200, expires: t0 + 1500 });
+    const orderId = await settler.orderIdentifier(orderTuple(o));
+    say("Open the order in MetaMask: OIF's settler takes 10 tUSD ...", "busy");
+    const tx = await new Contract(DEP.input_settler, SETTLER_ABI, s).open(orderTuple(o)); await tx.wait();
+    store.set("voyage", { order: o, out, orderId, openTx: tx.hash, userG: u.publicKey() });
+    say(`Order open. ${chLink(tx.hash, "transaction")}. Now the solver pays across.`, "good"); balance(); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+$("b-pay").onclick = async () => {
+  try {
+    await ensureWallet();
+    const v = voyage(), sol = stellarKey("solver");
+    const paid = BigInt(document.querySelector('input[name="pay"]:checked').value);
+    const memo = await oracle.memoFor(v.orderId, ident(account));
+    say(`The solver pays ${(Number(paid) / 1e7).toFixed(1)} XLM on Stellar testnet, memo ${short(memo, 10)} ...`, "busy");
+    const acc = await horizon.loadAccount(sol.publicKey());
+    const amount = (paid / 10_000_000n).toString() + "." + (paid % 10_000_000n).toString().padStart(7, "0");
+    const t = new TransactionBuilder(acc, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
+      .addOperation(Operation.payment({ destination: v.userG, asset: Asset.native(), amount }))
+      .addMemo(Memo.hash(memo.slice(2))).setTimeout(120).build();
+    t.sign(sol);
+    const res = await horizon.submitTransaction(t);
+    Object.assign(v, { farTx: res.hash, paid: paid.toString(), memo }); store.set("voyage", v);
+    say(`Paid on Stellar: ${farLink("stellar", res.hash)}. Now claim the fill.`, "good"); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+$("b-claim").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    const v = voyage();
+    const claimId = await oracle.claimIdOf(v.orderId, outputTuple(v.out), "0x" + v.farTx, ident(account));
+    say("Claim the fill in MetaMask ...", "busy");
+    const tx = await new Contract(DEP.oracle, ORACLE_ABI, s).claim(v.orderId, outputTuple(v.out), "0x" + v.farTx); await tx.wait();
+    Object.assign(v, { claimId, claimTx: tx.hash }); store.set("voyage", v);
+    say(`Claimed. ${chLink(tx.hash, "transaction")}. Now ask the lighthouse.`, "good"); draw(); loadLog();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+async function askCourt(claimId, show) {
+  await ensureWallet();
+  const c = createClient({ chain: testnetBradbury, endpoint: RPC, account, provider: eip1193 });
+  const gasLimit = 400000n, maxGasPrice = 1000000000n, budget = gasLimit * maxGasPrice;
+  const feeParams = AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [gasLimit, maxGasPrice]);
+  // The court's ruling reaches the oracle as a message when the verdict is final; this budget pays for it.
+  const messageAllocations = [{ messageType: 0, onAcceptance: false, recipient: DEP.oracle, budget, feeParams }];
+  const quote = await c.estimateTransactionFees({ totalMessageFees: budget, messageAllocations });
+  show("Approve the request to Internet Court in MetaMask ...", "busy");
+  const hash = await c.writeContract({ address: DEP.court, functionName: "verify", args: [claimId], value: 0n, fees: { distribution: quote.distribution, feeValue: quote.feeValue, messageAllocations } });
+  for (let i = 0; i < 400; i++) {
+    await sleep(6000);
+    let tx = null; try { tx = await reader.getTransaction({ hash }); } catch {}
+    const name = String(tx?.statusName || "");
+    if (name === "FINALIZED") {
+      for (let k = 0; k < 30; k++) { const f = await oracle.claimFacts(claimId); if (Number(f[0]) >= 2) break; show(`Final. Waiting for the court's own call to reach the oracle ... ${glLink(hash, "round")}`, "busy"); await sleep(5000); }
+      const r = JSON.parse(await reader.readContract({ address: DEP.court, functionName: "ruling", args: [claimId] }));
+      if (!r.verdict) { show(`The round finished and changed nothing: the network was not readable, or the transaction is not visible yet. Ask again. ${glLink(hash, "round")}`, "bad"); return; }
+      show(`The lighthouse saw it: <b>${r.verdict}</b>, ${esc(r.why)}. ${glLink(hash, "round")}`, r.verdict === "FILLED" ? "good" : "bad");
+      return;
+    }
+    if (["UNDETERMINED", "CANCELED", "LEADER_TIMEOUT", "VALIDATORS_TIMEOUT"].includes(name)) { show(`The round ended ${name} and changed nothing. ${glLink(hash, "round")}`, "bad"); return; }
+    show(name === "ACCEPTED" ? `Accepted by the validators. The court acts only once its verdict is final ... ${glLink(hash, "round")}` : `Validators are reading Stellar's record ... ${(i + 1) * 6}s, ${name || "waiting for the network"}. ${glLink(hash, "round")}`, "busy");
+  }
+}
+$("b-ask").onclick = async () => { try { await askCourt(voyage().claimId, say); draw(); loadLog(); } catch (e) { say(reasonOf(e), "bad"); } };
+
+$("b-collect").onclick = async () => {
+  try {
+    const s = await ensureWallet();
+    const v = voyage(), st = new Contract(DEP.input_settler, SETTLER_ABI, s);
+    let tx;
+    if (v.claimStatus === "Filled") {
+      say("Finalise on OIF's settler in MetaMask ...", "busy");
+      tx = await st.finalise(orderTuple(v.order), [[v.filledAt, ident(account)]], ident(account), "0x");
+    } else {
+      say("Refund the order on OIF's settler in MetaMask ...", "busy");
+      tx = await st.refund(orderTuple(v.order));
+    }
+    await tx.wait();
+    v.collected = true; store.set("voyage", v);
+    say(`${v.claimStatus === "Filled" ? "Paid: OIF's settler released the 10 tUSD to you as the solver." : "Refunded: OIF's settler returned the 10 tUSD to you as the user."} ${chLink(tx.hash, "transaction")}`, "good");
+    balance(); draw();
+  } catch (e) { say(reasonOf(e), "bad"); }
+};
+
+// ------------------------------------------------------------------ the log
+let shown = 15;
+async function pool(items, n, fn) {
+  const out = new Array(items.length); let next = 0;
+  await Promise.all([...Array(Math.min(n, items.length))].map(async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); } }));
+  return out;
+}
+async function loadLog() {
+  const n = Number(await oracle.claimCount());
+  // All the court's rulings in one read, newest first; claims are read from the oracle a few at a time.
+  const rulingsP = reader.readContract({ address: DEP.court, functionName: "page", args: [0, 50] }).then((t) => JSON.parse(t).items).catch(() => []);
+  const idx = []; for (let i = n - 1; i >= 0 && idx.length < shown; i--) idx.push(i);
+  const rows = await pool(idx, 4, async (i) => {
+    const id = await oracle.claimIds(i);
+    const f = await oracle.claimFacts(id);
+    return { id, network: tag(f[4].slice(0, 34)), st: CLAIM[Number(f[0])], amount: f[5], tx: f[3].slice(2) };
+  });
+  const why = Object.fromEntries((await rulingsP).map((r) => [r.claim.toLowerCase(), r.why]));
+  let filled = 0, not = 0;
+  for (const r of rows) { r.why = why[r.id.toLowerCase()] || ""; if (r.st === "Filled") filled++; if (r.st === "NotFilled") not++; }
+  $("s-claims").textContent = n; $("s-filled").textContent = filled + (n > shown ? "+" : ""); $("s-not").textContent = not + (n > shown ? "+" : "");
+  $("logrows").innerHTML = `<div class="r h"><span>Claim</span><span>Far chain</span><span>What the court saw</span><span>Amount</span><span>Verdict</span></div>` +
+    rows.map((r) => `<div class="r"><span class="mono">${short(r.id, 8)}</span><span>${esc(r.network)}<br/><span class="mono" style="font-size:11px">${farLink(r.network, r.tx)}</span></span><span class="why">${esc(r.why || (r.st === "Claimed" ? "waiting for the court" : ""))}</span><span class="mono">${amountOf(r.network, r.amount)}</span><span><span class="lamp ${r.st}">${r.st === "NotFilled" ? "NOT FILLED" : r.st.toUpperCase()}</span></span></div>`).join("") +
+    (n > shown ? `<div class="more"><button class="btn small ghost" id="more">Show more</button></div>` : "");
+  if ($("more")) $("more").onclick = () => { shown += 15; loadLog(); };
+}
+
+// ------------------------------------------------------------------ try to cheat
+const O = PROOF.orders, Z = ZeroHash, A = PROOF.accounts;
+const sI = new Interface(SETTLER_ABI), oI = new Interface(ORACLE_ABI);
+// Order A's proven timestamp, read from the oracle, so the "paid twice" attack gets past the proof check to the status check.
+oracle.claimFacts(O.A.claim).then((f) => { O.A.filledAt = Number(f[7]); }).catch(() => {});
+const ATTACKS = [
+  { t: "Settle a claim yourself", d: "A stranger tells the oracle a claim was filled, without the court.", who: ["stranger", A.stranger],
+    call: () => ({ to: DEP.oracle, data: oI.encodeFunctionData("settle", [O.B.claim, true, 1, Z]) }) },
+  { t: "Spend one payment twice", d: "The solver claims the Stellar payment that already filled order A against order C.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.oracle, data: oI.encodeFunctionData("claim", [O.C.orderId, outputTuple(O.C.out), "0x" + O.A.far_tx]) }) },
+  { t: "Point at another oracle", d: "A claim whose output names a different oracle, to borrow this one's attestation.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.oracle, data: oI.encodeFunctionData("claim", [O.A.orderId, outputTuple({ ...O.A.out, oracle: ident(A.user) }), "0x" + O.A.far_tx]) }) },
+  { t: "Collect someone else's fill", d: "A stranger finalises order A on OIF's settler, naming itself as destination.", who: ["stranger", A.stranger],
+    call: () => ({ to: DEP.input_settler, data: sI.encodeFunctionData("finalise", [orderTuple(O.A.order), [[O.A.filledAt, ident(A.solver)]], ident(A.stranger), "0x"]) }) },
+  { t: "Get paid twice", d: "The solver finalises order A again, after it was paid.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.input_settler, data: sI.encodeFunctionData("finalise", [orderTuple(O.A.order), [[O.A.filledAt, ident(A.solver)]], ident(A.solver), "0x"]) }) },
+  { t: "Collect without a proof", d: "The solver finalises order C, which the court refused: no attestation, no pay.", who: ["solver", A.solver],
+    call: () => ({ to: DEP.input_settler, data: sI.encodeFunctionData("finalise", [orderTuple(O.C.order), [[1, ident(A.solver)]], ident(A.solver), "0x"]) }) },
+];
+$("attacks").innerHTML = ATTACKS.map((a, i) => `<div class="atk"><b>${esc(a.t)}</b><p>${esc(a.d)}</p><span class="who">from the ${a.who[0]}, ${short(a.who[1])}</span><button class="btn small ghost" data-atk="${i}">Try it</button><span class="out" id="atk-${i}"></span></div>`).join("");
+document.querySelectorAll("[data-atk]").forEach((b) => (b.onclick = async () => {
+  const a = ATTACKS[Number(b.dataset.atk)], out = $("atk-" + b.dataset.atk);
+  out.className = "out"; out.textContent = "calling GenLayer Chain ...";
+  try { await chain.call({ ...a.call(), from: a.who[1] }); out.className = "out bad"; out.textContent = "it went through"; }
+  catch (e) { out.className = "out good"; out.textContent = "refused: " + reasonOf(e); }
+}));
+
+// ------------------------------------------------------------------ proof and addresses
+$("proof-title").textContent = `${PROOF.passed} of ${PROOF.total} checks passed on Bradbury.`;
+$("proof-list").innerHTML = PROOF.checks.map((c) => `<div><i class="${c.ok ? "" : "no"}">${c.ok ? "PASS" : "FAIL"}</i><span>${esc(c.name)}${c.note && c.gl ? `<br/><small>${esc(c.note)}</small>` : ""}</span>${c.tx ? (c.gl ? glLink(c.tx, "round") : chLink(c.tx, "tx")) : "<span></span>"}</div>`).join("");
+const addr = (a, gl) => `<a class="mono" href="${gl ? EXPLORER : CHAIN_EXPLORER}/address/${a}" target="_blank" rel="noopener">${a}</a>`;
+$("addr").innerHTML = [
+  ["Internet Court (Farshore)", addr(DEP.court, true), "Intelligent Contract on GenLayer Bradbury: reads the far chain, settles claims"],
+  ["FarshoreOracle", addr(DEP.oracle), "the OIF input oracle, on GenLayer Chain"],
+  ["InputSettlerEscrow", addr(DEP.input_settler), "OIF, unmodified, at its canonical address"],
+  ["Test USD", addr(DEP.test_usd), "the inputs orders lock; free to mint"],
+].map((r) => `<tr><td>${r[0]}</td><td>${r[1]}<br/><small>${r[2]}</small></td></tr>`).join("");
+
+if (window.ethereum) window.ethereum.request({ method: "eth_accounts" }).then((a) => { if (a && a[0]) { account = a[0]; $("connect").textContent = short(account); balance(); } }).catch(() => {});
+draw();
+loadLog().catch((e) => console.warn("log", e));
+setInterval(() => { drawSteps(); if (voyage() && !voyage().collected) draw().catch(() => {}); }, 20000);
+</script>
+</body>
+</html>
