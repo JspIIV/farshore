@@ -577,7 +577,7 @@ $("b-collect").onclick = async () => {
     await tx.wait();
     v.collected = true; store.set("voyage", v);
     say(`${v.claimStatus === "Filled" ? "Paid: OIF's settler released the 10 tUSD to you as the solver." : "Refunded: OIF's settler returned the 10 tUSD to you as the user."} ${chLink(tx.hash, "transaction")}`, "good");
-    balance(); draw();
+    balance(); draw(); setTimeout(() => { draw(); loadLog(); }, 4000);
   } catch (e) { say(reasonOf(e), "bad"); }
 };
 
