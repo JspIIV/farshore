@@ -1,0 +1,3 @@
+[submodule "vendor/oif-contracts"]
+	path = vendor/oif-contracts
+	url = https://github.com/openintentsframework/oif-contracts

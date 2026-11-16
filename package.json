@@ -1,0 +1,11 @@
+{
+  "name": "farshore",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Farshore: Internet Court as an Open Intents Framework oracle for outputs on chains no bridge reaches",
+  "license": "MIT",
+  "scripts": { "test": "python tests/farshore_rules.py" },
+  "dependencies": { "ethers": "^6.17.0" },
+  "devDependencies": { "solc": "^0.8.36", "genlayer-js": "2.0.0-rc.2", "@stellar/stellar-sdk": "^14.0.0" }
+}

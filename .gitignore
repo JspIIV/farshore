@@ -1,0 +1,8 @@
+node_modules/
+*.log
+*.mp4
+.env
+.env.*
+.vercel/
+results/run*.log
+.claude/

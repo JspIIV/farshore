@@ -1,0 +1,23 @@
+{
+  "network": "genlayer testnet bradbury phase 2",
+  "chain_id": 4221,
+  "input_settler": {
+    "address": "0x87EBa9B7AD9524FA8FFfeFf8FDA0dBfbB6d3a263",
+    "tx": "0x14516012204597089ae45f0752a851129d9e77fc2f9f454c674e1b651cd3c9cc"
+  },
+  "compiler": "0.8.30+commit.73712a01.Emscripten.clang",
+  "test_usd": {
+    "address": "0xd0dD2416Bba75578703532D70674fb6aCAfDEC0e",
+    "tx": "0xb6c729460ec5b4deb1732b0b18927f690c8c7b8f1e90ba6b9cf11ed17d7b5ea4"
+  },
+  "oracle": {
+    "address": "0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC",
+    "tx": "0xf2205fad87e8e2018e173180f68d4e1ced1eac50017cf16aaa517ab7dc54a89a"
+  },
+  "court": {
+    "address": "0x073885844B08A7F482a37666D145D377bf558d33",
+    "tx": "0x6784ea846c6c6b871a1f3f20ad7144f0ba3a1a86f5f2c700c6b52d943fb77efe",
+    "deployed_at": "2026-11-16T08:05:54.644Z"
+  },
+  "wired": true
+}
