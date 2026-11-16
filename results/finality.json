@@ -1,7 +1,7 @@
 {
-  "checked_at": "2026-11-16T13:21:23.637Z",
-  "court": "0x073885844B08A7F482a37666D145D377bf558d33",
-  "source_sha256": "044520e8d7a4f1f71f368e1bf1c27e2e712e43f04ec8aa5c0795c93e0a1fa936",
+  "checked_at": "2026-11-16T14:45:15.385Z",
+  "court": "0xe8764C31E6bB401ABda74404c3F466Fd46aAe4AF",
+  "source_sha256": "3b80057a5aa9524c0fd77d9ff2479064298863a00683d674efc3d4d1ec8ec693",
   "source_matches_chain": true,
   "all_ok": true
 }

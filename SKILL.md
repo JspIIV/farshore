@@ -1,6 +1,6 @@
 ---
 name: farshore-oif-oracle
-description: Fill Open Intents Framework orders whose output is on a chain no bridge reaches. Farshore is an OIF input oracle that Internet Court operates: GenLayer validators read the far chain's own public API and write the OIF fill attestation themselves, so a solver is paid by OIF's unmodified settler for a payment on Stellar testnet or Base Sepolia. Use when an agent or app opens or fills cross-chain intents and the destination has no messaging layer.
+description: Fill Open Intents Framework orders whose output is on a chain no bridge reaches. Farshore is an OIF input oracle that Internet Court operates: GenLayer validators read the far chain from two independent sources and write the OIF fill attestation themselves, so a solver is paid by OIF's unmodified settler for a payment on Stellar testnet or Base Sepolia. Use when an agent or app opens or fills cross-chain intents and the destination has no messaging layer.
 ---
 
 # Farshore: an OIF oracle for chains no bridge reaches
@@ -22,8 +22,8 @@ solver  ──finalise(order, [timestamp, solver], ...)──▶ OIF settler pay
 
 | Contract | Address | Source |
 |---|---|---|
-| Farshore court (Intelligent Contract) | `0x073885844B08A7F482a37666D145D377bf558d33` | `contracts/farshore.py` |
-| FarshoreOracle | `0x7780d9e1E78189032A4BB7f54380244f8d6DB3AC` | `evm/FarshoreOracle.sol` |
+| Farshore court (Intelligent Contract) | `0xe8764C31E6bB401ABda74404c3F466Fd46aAe4AF` | `contracts/farshore.py` |
+| FarshoreOracle | `0x005b5950ce7f46b2710c16a7108Ce320c55b370a` | `evm/FarshoreOracle.sol` |
 | InputSettlerEscrow | `0x1CC9260E285C2C8AC8D2E7102F3978056Ec1d0a8` | OIF, unmodified, its canonical address on every chain |
 | Test USD (inputs; anyone may mint) | `0xd0dD2416Bba75578703532D70674fb6aCAfDEC0e` | `evm/TestUSD.sol` |
 
@@ -31,10 +31,12 @@ RPC for GenLayer writes: `https://rpc-bradbury.genlayer.com` (it also serves Gen
 
 ## Networks the court reads
 
-| Output `token` (network, asset) | Recipient | Amount unit | API the court reads | Memo |
+| Output `token` (network, asset) | Recipient | Amount unit | Sources the court reads, both must agree | Memo |
 |---|---|---|---|---|
-| `stellar-testnet`, `XLM` | raw 32-byte ed25519 key | stroops (1e-7) | Horizon testnet | `memo_hash` = `memoFor` |
-| `base-sepolia`, `ETH` | address, left-padded to 32 bytes | wei | Blockscout v2 | transaction input data = `memoFor` |
+| `stellar-testnet`, `XLM` | raw 32-byte ed25519 key | stroops (1e-7) | Horizon testnet and StellarExpert | `memo_hash` = `memoFor` |
+| `base-sepolia`, `ETH` | address, left-padded to 32 bytes | wei | Blockscout v2 and the chain's own RPC | transaction input data = `memoFor` |
+
+`court.policy()` returns the sources, the grace period and how to retry.
 
 The token is two ASCII fields: the network in the high 16 bytes, the asset in the low 16 (`lib/oif.mjs` `tokenTag`).
 
@@ -65,7 +67,7 @@ await settler.open(orderTuple(o));            // orderId = await settler.orderId
 
 ## What the court guarantees
 
-- It reads the network from its own table; the claim gives a hash and nothing else.
+- It reads the network from two sources in its own table; the claim gives a hash and nothing else. Sources that disagree change nothing.
 - FILLED only for exactly the amount of the native asset, to the recipient, in a successful transaction carrying the memo
   for this order and this claimer. A payment copied by somebody else is NOT_FILLED for them.
 - A transaction the network does not show changes nothing for 15 minutes after the claim, then is NOT_FILLED.
@@ -77,6 +79,8 @@ await settler.open(orderTuple(o));            // orderId = await settler.orderId
 |---|---|---|
 | `verdict` | `court.ruling(claimId).verdict` | `FILLED` or `NOT_FILLED`, agreed by the round |
 | `why` | same | what the network showed |
+| `evidence` | same | sha256 of network, transaction, verdict, time, memo, recipient, amount; the reason sent to the oracle commits to it |
+| `sources` | same | the two sources read |
 | `filled_at` | same, and `oracle.claimFacts(claimId)[7]` | the far chain's timestamp, used in `finalise` |
 | status | `oracle.claimFacts(claimId)[0]` | 1 Claimed, 2 Filled, 3 NotFilled |
 

@@ -5,16 +5,18 @@
 An OIF order locks the user's inputs in OIF's input settler on GenLayer Chain and asks for an output on another
 network: pay this amount of this asset to this account. A solver pays there, with a memo that binds the payment to the
 order and to the solver, and claims the fill on the FarshoreOracle. verify(claim_id), open to anybody, has a GenLayer
-round read that transaction from the network's own public API and decide in code:
+round read that transaction from TWO independent sources for the network and decide in code:
 
-  FILLED      it pays exactly the amount of the asset to the recipient, with the memo, and succeeded
-  NOT_FILLED  it does not, or the network has no such transaction long after the claim
+  FILLED      both sources show exactly the amount of the asset paid to the recipient, with the memo, succeeded
+  NOT_FILLED  both sources show it does not, or neither shows the transaction long after the claim
 
-When the verdict is final this contract calls settle() on the oracle itself, through its Ghost on GenLayer Chain. FILLED
-writes the OIF attestation with the transaction's own timestamp, and the solver finalises on OIF's settler.
+Each source is reduced to the same facts (found, succeeded, memo, payments, time) and judged by the same rule. If the two
+sources do not agree on the verdict, the time and the evidence, nothing changes and anybody may ask again. When the
+verdict is final this contract calls settle() on the oracle itself, through its Ghost on GenLayer Chain, with a reason
+that commits to the evidence. FILLED writes the OIF attestation with the transaction's own timestamp.
 
-Which API is read is fixed here, per network. The solver names only a transaction hash, so it cannot point the court at
-a page of its own. Nothing a transaction says about itself, such as text in a memo, is read as anything but bytes.
+The sources are fixed here, per network. The solver names only a transaction hash, so it cannot point the court at a
+page of its own. Nothing a transaction says about itself, such as text in a memo, is read as anything but bytes.
 """
 
 import genlayer as gl
@@ -26,13 +28,20 @@ from datetime import datetime, timezone
 FILLED = "FILLED"
 NOT_FILLED = "NOT_FILLED"
 UNREADABLE = "UNREADABLE"
+MISSING = "MISSING"
+SPLIT = "SPLIT"
 CLAIMED = 1
-NOT_FOUND_GRACE = 15 * 60
+GRACE_SECONDS = 15 * 60
 
-# network tag -> (asset tag, reader). The tag is the ASCII in the high 16 bytes of the output's token.
-HORIZON = {"stellar-testnet": "https://horizon-testnet.stellar.org"}
-BLOCKSCOUT = {"base-sepolia": "https://base-sepolia.blockscout.com"}
-NATIVE = {"stellar-testnet": "XLM", "base-sepolia": "ETH"}
+# Every network the court reads: its native asset, how its records are read, and two independent sources.
+NETWORKS = {
+    "stellar-testnet": {"asset": "XLM", "kind": "stellar",
+                        "primary": "https://horizon-testnet.stellar.org",
+                        "second": "https://api.stellar.expert/explorer/testnet"},
+    "base-sepolia": {"asset": "ETH", "kind": "evm",
+                     "primary": "https://base-sepolia.blockscout.com",
+                     "second": "https://sepolia.base.org"},
+}
 
 
 def _now() -> int:
@@ -78,13 +87,17 @@ def stroops(amount: int) -> str:
     return str(amount // 10_000_000) + "." + str(amount % 10_000_000).rjust(7, "0")
 
 
+def _stroops_of(text) -> int:
+    whole, _, frac = str(text).partition(".")
+    return int(whole) * 10_000_000 + int((frac + "0000000")[:7])
+
+
 def _iso(ts: str) -> int:
     return int(datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp())
 
 
-def _get(url: str):
-    """(status, json or None). A fetch that fails raises, so the round reports nothing rather than a guess."""
-    res = gl.nondet.web.get(url)
+def _json(res):
+    """(status, json or None)."""
     status = int(getattr(res, "status", 0) or 0)
     body = getattr(res, "body", b"") or b""
     try:
@@ -93,68 +106,287 @@ def _get(url: str):
         return status, None
 
 
+def _get(url: str):
+    return _json(gl.nondet.web.get(url))
+
+
+def _rpc(url: str, calls: list):
+    payload = [{"jsonrpc": "2.0", "id": i, "method": m, "params": p} for i, (m, p) in enumerate(calls)]
+    status, doc = _json(gl.nondet.web.post(url, body=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}))
+    if status >= 400 or not isinstance(doc, list):
+        return None
+    by_id = {d.get("id"): d for d in doc if isinstance(d, dict)}
+    out = []
+    for i in range(len(calls)):
+        d = by_id.get(i)
+        if d is None or "error" in d:
+            return None
+        out.append(d.get("result"))
+    return out
+
+
 def _unreadable(status: int, doc) -> bool:
     return doc is None or status >= 500 or status == 429
 
 
-def check_stellar(base: str, tx: str, memo: bytes, recipient: bytes, amount: int) -> dict:
+# ------------------------------------------------------------------ Stellar XDR, as much as a payment needs
+
+class _Xdr:
+    def __init__(self, data: bytes):
+        self.d, self.i = data, 0
+
+    def take(self, n: int) -> bytes:
+        if self.i + n > len(self.d):
+            raise ValueError("short xdr")
+        out = self.d[self.i:self.i + n]
+        self.i += n
+        return out
+
+    def u32(self) -> int:
+        return int.from_bytes(self.take(4), "big")
+
+    def i64(self) -> int:
+        return int.from_bytes(self.take(8), "big", signed=True)
+
+    def fixed(self, n: int) -> bytes:
+        out = self.take(n)
+        self.take((4 - n % 4) % 4)
+        return out
+
+    def var(self) -> bytes:
+        return self.fixed(self.u32())
+
+    def muxed(self) -> bytes:
+        kind = self.u32()
+        if kind == 0x100:
+            self.take(8)
+        elif kind != 0:
+            raise ValueError("muxed account type")
+        return self.take(32)
+
+    def account(self) -> bytes:
+        if self.u32() != 0:
+            raise ValueError("public key type")
+        return self.take(32)
+
+    def preconditions(self) -> None:
+        kind = self.u32()
+        if kind == 1:
+            self.take(16)
+        elif kind == 2:
+            if self.u32():
+                self.take(16)
+            if self.u32():
+                self.take(8)
+            if self.u32():
+                self.take(8)
+            self.take(12)
+            for _ in range(self.u32()):
+                signer = self.u32()
+                self.take(32)
+                if signer == 3:
+                    self.var()
+
+    def memo(self):
+        kind = self.u32()
+        if kind == 0:
+            return None
+        if kind == 1:
+            self.var()
+            return b"text"
+        if kind == 2:
+            self.take(8)
+            return b"id"
+        if kind in (3, 4):
+            got = self.take(32)
+            return got if kind == 3 else b"return"
+        raise ValueError("memo type")
+
+    def operations(self) -> list:
+        pays = []
+        for _ in range(self.u32()):
+            if self.u32():
+                self.muxed()
+            kind = self.u32()
+            if kind == 0:                                   # CREATE_ACCOUNT
+                to = self.account()
+                pays.append((stellar_account(to), "XLM", self.i64()))
+            elif kind == 1:                                 # PAYMENT
+                to = self.muxed()
+                asset = self.u32()
+                if asset == 1:
+                    self.take(4)
+                    self.account()
+                elif asset == 2:
+                    self.take(12)
+                    self.account()
+                pays.append((stellar_account(to), "XLM" if asset == 0 else "other", self.i64()))
+            else:
+                break                                       # an operation this reader does not size: stop here
+        return pays
+
+
+def stellar_envelope(body_b64: str) -> dict:
+    """(memo, payments) from a base64 TransactionEnvelope."""
+    x = _Xdr(base64.b64decode(body_b64))
+    kind = x.u32()
+    if kind == 5:                                           # fee bump: skip to the inner transaction
+        x.muxed()
+        x.i64()
+        if x.u32() != 2:
+            raise ValueError("inner envelope type")
+        kind = 2
+    if kind == 2:
+        x.muxed()
+        x.take(4 + 8)
+        x.preconditions()
+    elif kind == 0:
+        x.take(32 + 4 + 8)
+        if x.u32():
+            x.take(16)
+    else:
+        raise ValueError("envelope type")
+    memo = x.memo()
+    return {"memo": memo, "pays": x.operations()}
+
+
+def stellar_result_ok(result_b64: str) -> bool:
+    x = _Xdr(base64.b64decode(result_b64))
+    x.i64()
+    code = int.from_bytes(x.take(4), "big", signed=True)
+    if code == 1:                                           # fee bump whose inner transaction ran
+        x.take(32)
+        x.i64()
+        code = int.from_bytes(x.take(4), "big", signed=True)
+    return code == 0
+
+
+# ------------------------------------------------------------------ the four readers, reduced to the same facts
+# facts: None (could not read) | {"found": False} | {"found": True, "ok": bool, "memo": bytes|None, "pays": [(to, asset, amount)], "ts": int}
+
+def read_horizon(base: str, tx: str):
     status, t = _get(base + "/transactions/" + tx)
     if _unreadable(status, t):
-        return {"verdict": UNREADABLE}
+        return None
     if status == 404 or t.get("hash") != tx:
-        return {"verdict": "MISSING", "why": "the network has no such transaction"}
-    if not t.get("successful", False):
-        return {"verdict": NOT_FILLED, "why": "the transaction failed on the network"}
-    if t.get("memo_type") != "hash":
-        return {"verdict": NOT_FILLED, "why": "the transaction carries no hash memo, so it is not bound to this order and solver"}
-    try:
-        got = base64.b64decode(str(t.get("memo", "")))
-    except Exception:
-        got = b""
-    if got != memo:
-        return {"verdict": NOT_FILLED, "why": "the memo binds this payment to another order or another solver"}
+        return {"found": False}
+    memo = None
+    if t.get("memo_type") == "hash":
+        try:
+            memo = base64.b64decode(str(t.get("memo", "")))
+        except Exception:
+            memo = b"bad"
+    elif t.get("memo_type") not in (None, "none"):
+        memo = b"other"
     status, ops = _get(base + "/transactions/" + tx + "/operations?limit=200")
     if _unreadable(status, ops):
-        return {"verdict": UNREADABLE}
-    want_to, want_amount = stellar_account(recipient), stroops(amount)
-    records = ((ops.get("_embedded") or {}).get("records") or []) if isinstance(ops, dict) else []
-    for op in records:
-        kind = op.get("type")
-        if kind == "payment" and op.get("asset_type") == "native" and op.get("to") == want_to and op.get("amount") == want_amount:
-            return {"verdict": FILLED, "ts": _iso(t.get("created_at")), "why": "pays " + want_amount + " XLM to " + want_to}
-        if kind == "create_account" and op.get("account") == want_to and op.get("starting_balance") == want_amount:
-            return {"verdict": FILLED, "ts": _iso(t.get("created_at")), "why": "funds " + want_to + " with " + want_amount + " XLM"}
-    return {"verdict": NOT_FILLED, "why": "no operation pays exactly " + want_amount + " XLM to " + want_to}
+        return None
+    pays = []
+    for op in ((ops.get("_embedded") or {}).get("records") or []) if isinstance(ops, dict) else []:
+        if op.get("type") == "payment":
+            pays.append((op.get("to"), "XLM" if op.get("asset_type") == "native" else "other", _stroops_of(op.get("amount", "0"))))
+        elif op.get("type") == "create_account":
+            pays.append((op.get("account"), "XLM", _stroops_of(op.get("starting_balance", "0"))))
+    return {"found": True, "ok": bool(t.get("successful", False)), "memo": memo, "pays": pays, "ts": _iso(t.get("created_at"))}
 
 
-def check_evm(base: str, tx: str, memo: bytes, recipient: bytes, amount: int) -> dict:
+def read_stellar_expert(base: str, tx: str):
+    status, t = _get(base + "/tx/" + tx)
+    if status == 404 and isinstance(t, dict):
+        return {"found": False}
+    if _unreadable(status, t):
+        return None
+    if t.get("hash") != tx:
+        return {"found": False}
+    env = stellar_envelope(str(t.get("body", "")))
+    return {"found": True, "ok": stellar_result_ok(str(t.get("result", ""))), "memo": env["memo"], "pays": env["pays"], "ts": int(t.get("ts", 0))}
+
+
+def read_blockscout(base: str, tx: str):
     status, t = _get(base + "/api/v2/transactions/0x" + tx)
     if _unreadable(status, t):
-        return {"verdict": UNREADABLE}
+        return None
     if status == 404 or str(t.get("hash", "")).lower() != "0x" + tx:
-        return {"verdict": "MISSING", "why": "the network has no such transaction"}
-    if t.get("status") != "ok" or t.get("result") != "success":
-        return {"verdict": NOT_FILLED, "why": "the transaction is not a successful one"}
-    if str(t.get("raw_input", "")).lower() != "0x" + memo.hex():
-        return {"verdict": NOT_FILLED, "why": "the input data binds this payment to another order or another solver"}
+        return {"found": False}
+    raw = str(t.get("raw_input", "")).lower()
     to = str((t.get("to") or {}).get("hash", "")).lower()
-    want_to = "0x" + recipient[12:].hex()
-    if recipient[:12] != bytes(12) or to != want_to:
-        return {"verdict": NOT_FILLED, "why": "it pays " + to + ", not " + want_to}
-    if str(t.get("value", "")) != str(amount):
-        return {"verdict": NOT_FILLED, "why": "it pays " + str(t.get("value")) + " wei, not " + str(amount)}
-    return {"verdict": FILLED, "ts": _iso(t.get("timestamp")), "why": "pays " + str(amount) + " wei to " + want_to}
+    return {"found": True, "ok": t.get("status") == "ok" and t.get("result") == "success",
+            "memo": bytes.fromhex(raw[2:]) if raw.startswith("0x") and len(raw) == 66 else b"other",
+            "pays": [(to, "ETH", int(str(t.get("value", "0"))))], "ts": _iso(t.get("timestamp"))}
+
+
+def read_evm_rpc(url: str, tx: str):
+    got = _rpc(url, [("eth_getTransactionByHash", ["0x" + tx]), ("eth_getTransactionReceipt", ["0x" + tx])])
+    if got is None:
+        return None
+    t, r = got
+    if t is None:
+        return {"found": False}
+    if r is None:
+        return {"found": False}
+    block = _rpc(url, [("eth_getBlockByNumber", [r.get("blockNumber"), False])])
+    if block is None or block[0] is None:
+        return None
+    raw = str(t.get("input", "")).lower()
+    return {"found": True, "ok": str(r.get("status")) == "0x1",
+            "memo": bytes.fromhex(raw[2:]) if raw.startswith("0x") and len(raw) == 66 else b"other",
+            "pays": [(str(t.get("to") or "").lower(), "ETH", int(str(t.get("value", "0x0")), 16))], "ts": int(str(block[0].get("timestamp", "0x0")), 16)}
+
+
+READERS = {"stellar": (read_horizon, read_stellar_expert), "evm": (read_blockscout, read_evm_rpc)}
+
+
+def recipient_of(kind: str, recipient: bytes) -> str:
+    if kind == "stellar":
+        return stellar_account(recipient)
+    return "0x" + recipient[12:].hex() if recipient[:12] == bytes(12) else ""
+
+
+def judge(facts, kind: str, memo: bytes, recipient: bytes, amount: int) -> dict:
+    """One source's facts against the order. The same rule for every source."""
+    if facts is None:
+        return {"verdict": UNREADABLE}
+    if not facts.get("found"):
+        return {"verdict": MISSING, "why": "the network has no such transaction"}
+    want_to = recipient_of(kind, recipient)
+    asset = "XLM" if kind == "stellar" else "ETH"
+    shown = stroops(amount) + " XLM" if kind == "stellar" else str(amount) + " wei"
+    if not facts.get("ok"):
+        return {"verdict": NOT_FILLED, "why": "the transaction failed on the network"}
+    if facts.get("memo") != memo:
+        return {"verdict": NOT_FILLED, "why": "the memo binds this payment to another order or another solver"}
+    if not want_to:
+        return {"verdict": NOT_FILLED, "why": "the recipient is not an account on this network"}
+    for to, a, n in facts.get("pays") or []:
+        if to == want_to and a == asset and n == amount:
+            return {"verdict": FILLED, "ts": int(facts.get("ts", 0)), "why": "pays " + shown + " to " + want_to}
+    return {"verdict": NOT_FILLED, "why": "no operation pays exactly " + shown + " to " + want_to}
+
+
+def evidence(network: str, tx: str, verdict: str, ts: int, memo: bytes, recipient: bytes, amount: int) -> str:
+    """A digest of what the round agreed: anyone can recompute it from the network and the claim."""
+    line = "|".join([network, tx, verdict, str(ts), memo.hex(), recipient.hex(), str(amount)])
+    return hashlib.sha256(line.encode("utf-8")).hexdigest()
 
 
 def check(network: str, tx: str, memo: bytes, recipient: bytes, amount: int) -> dict:
+    """Both sources, judged alike. They must agree on the verdict and the time, or nothing is decided."""
+    spec = NETWORKS.get(network)
+    if spec is None:
+        return {"verdict": NOT_FILLED, "why": "the court reads no network called " + repr(network)}
+    first, second = READERS[spec["kind"]]
     try:
-        if network in HORIZON:
-            return check_stellar(HORIZON[network], tx, memo, recipient, amount)
-        if network in BLOCKSCOUT:
-            return check_evm(BLOCKSCOUT[network], tx, memo, recipient, amount)
+        a = judge(first(spec["primary"], tx), spec["kind"], memo, recipient, amount)
+        b = judge(second(spec["second"], tx), spec["kind"], memo, recipient, amount)
     except Exception:
         return {"verdict": UNREADABLE}
-    return {"verdict": NOT_FILLED, "why": "the court reads no network called " + repr(network)}
+    if UNREADABLE in (a["verdict"], b["verdict"]):
+        return {"verdict": UNREADABLE}
+    if a["verdict"] != b["verdict"] or a.get("ts", 0) != b.get("ts", 0):
+        return {"verdict": SPLIT, "why": "the two sources do not agree yet: " + a["verdict"] + " and " + b["verdict"]}
+    out = dict(a)
+    out["evidence"] = evidence(network, tx, a["verdict"], a.get("ts", 0), memo, recipient, amount)
+    return out
 
 
 @gl.evm.contract_interface
@@ -179,7 +411,7 @@ class Farshore(gl.contract.Contract):
 
     @gl.public.write
     def verify(self, claim_id: str) -> str:
-        """Check a claimed fill on its own network and settle it on the oracle. Open to anybody."""
+        """Check a claimed fill on its own network, from two sources, and settle it on the oracle. Open to anybody."""
         h = _hex32(claim_id)
         if not h:
             return json.dumps({"ok": False, "error": "give the claim id as 32 bytes of hex"})
@@ -197,8 +429,9 @@ class Farshore(gl.contract.Contract):
         memo = _b(oracle.view().memoFor(order_id, solver))
         tx = tx_hash.hex()
 
-        if network in NATIVE and asset != NATIVE[network]:
-            got = {"verdict": NOT_FILLED, "why": "the court checks only " + NATIVE[network] + " on " + network}
+        spec = NETWORKS.get(network)
+        if spec is not None and asset != spec["asset"]:
+            got = {"verdict": NOT_FILLED, "why": "the court checks only " + spec["asset"] + " on " + network}
         else:
             def lead() -> dict:
                 return check(network, tx, memo, recipient, amount)
@@ -207,28 +440,33 @@ class Farshore(gl.contract.Contract):
                 if not isinstance(leaders_res, gl.vm.Return) or not isinstance(leaders_res.calldata, dict):
                     return False
                 mine, theirs = check(network, tx, memo, recipient, amount), leaders_res.calldata
-                return mine.get("verdict") == theirs.get("verdict") and mine.get("ts", 0) == theirs.get("ts", 0)
+                return all(mine.get(k) == theirs.get(k) for k in ("verdict", "ts", "evidence"))
 
             got = gl.vm.run_nondet(lead, agree)
         verdict = str(got.get("verdict", "")) if isinstance(got, dict) else ""
-        if verdict == "MISSING":
-            if _now() - claimed_at < NOT_FOUND_GRACE:
-                return json.dumps({"ok": False, "error": "the network does not show this transaction yet; ask again later"})
+        if verdict == SPLIT:
+            return json.dumps({"ok": False, "error": got.get("why", "the sources do not agree") + "; nothing changed, ask again later"})
+        if verdict == MISSING:
+            if _now() - claimed_at < GRACE_SECONDS:
+                return json.dumps({"ok": False, "error": "the network does not show this transaction yet; ask again after " + str(claimed_at + GRACE_SECONDS)})
             verdict = NOT_FILLED
+            got = dict(got)
+            got["evidence"] = evidence(network, tx, MISSING, 0, memo, recipient, amount)
         if verdict not in (FILLED, NOT_FILLED):
             return json.dumps({"ok": False, "error": "the network could not be read; nothing changed"})
 
         filled_at = int(got.get("ts", 0)) if verdict == FILLED else 0
-        why = str(got.get("why", ""))[:300]
-        reason = hashlib.sha256(("farshore|" + h + "|" + verdict).encode("utf-8")).digest()
-        record = {"claim": "0x" + h, "verdict": verdict, "why": why, "network": network, "asset": asset,
+        ev = str(got.get("evidence", "") or evidence(network, tx, verdict, filled_at, memo, recipient, amount))
+        reason = hashlib.sha256(("farshore|" + h + "|" + verdict + "|" + ev).encode("utf-8")).digest()
+        record = {"claim": "0x" + h, "verdict": verdict, "why": str(got.get("why", ""))[:300], "network": network, "asset": asset,
                   "tx": tx, "order": "0x" + order_id.hex(), "solver": "0x" + solver[12:].hex(), "amount": str(amount),
-                  "recipient": "0x" + recipient.hex(), "filled_at": filled_at, "ruled_at": _now(),
+                  "recipient": "0x" + recipient.hex(), "filled_at": filled_at, "evidence": ev,
+                  "sources": [spec["primary"], spec["second"]] if spec else [], "ruled_at": _now(),
                   "by": gl.message.sender_address.as_hex.lower(), "reason": reason.hex()}
         self.ids.append(h)
         self.rulings[h] = json.dumps(record)
         oracle.emit().settle(key, verdict == FILLED, filled_at, reason)
-        return json.dumps({"ok": True, "verdict": verdict, "filled_at": filled_at})
+        return json.dumps({"ok": True, "verdict": verdict, "filled_at": filled_at, "evidence": ev})
 
     @gl.public.write
     def resend(self, claim_id: str) -> str:
@@ -256,8 +494,11 @@ class Farshore(gl.contract.Contract):
         return self.oracle
 
     @gl.public.view
-    def networks(self) -> str:
-        return json.dumps({n: {"asset": NATIVE[n], "api": (HORIZON.get(n) or BLOCKSCOUT.get(n))} for n in NATIVE})
+    def policy(self) -> str:
+        """What the court reads and when it decides: for integrators that retry."""
+        return json.dumps({"grace_seconds": GRACE_SECONDS, "networks": NETWORKS,
+                           "retry": "UNREADABLE, SPLIT and MISSING inside the grace change nothing; anybody may call verify again",
+                           "evidence": "sha256(network|tx|verdict|timestamp|memo hex|recipient hex|amount)"})
 
     @gl.public.view
     def page(self, start: int, count: int) -> str:

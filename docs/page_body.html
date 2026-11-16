@@ -16,7 +16,7 @@
     <div class="kicker">Open Intents Framework &middot; Internet Court &middot; GenLayer</div>
     <h1>Settle on this shore.<br/>Prove it on the <em>far one.</em></h1>
     <p class="lede">An intent can ask for a payment on a chain no bridge reaches. Farshore is the Open Intents Framework oracle
-      for those chains: GenLayer validators look across, read the far chain's own public record, and when the payment is
+      for those chains: GenLayer validators look across, read the far chain's record from two independent sources, and when the payment is
       exactly what the order asked, the court writes the proof that releases the solver's pay.</p>
     <div class="cta"><a class="btn" href="#voyage">Sail an order</a><a class="btn ghost" href="#log">Read the log</a><a class="btn ghost" href="https://github.com/JspIIV/farshore" target="_blank" rel="noopener">Code</a></div>
 
@@ -52,8 +52,8 @@
         <text x="1176" y="40" text-anchor="end" fill="#6f8b95" font-family="Geist Mono" font-size="12" letter-spacing="2">THE FAR SHORE</text>
         <text x="1176" y="62" text-anchor="end" fill="#e9f2f1" font-family="Instrument Serif" font-size="24">no bridge reaches</text>
         <g font-family="Geist Mono" font-size="11">
-          <rect x="1040" y="150" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="170" fill="#8ec9ff">STELLAR TESTNET</text><text x="1052" y="185" fill="#6f8b95">read via Horizon</text>
-          <rect x="1040" y="214" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="234" fill="#8ec9ff">BASE SEPOLIA</text><text x="1052" y="249" fill="#6f8b95">read via Blockscout</text>
+          <rect x="1040" y="150" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="170" fill="#8ec9ff">STELLAR TESTNET</text><text x="1052" y="185" fill="#6f8b95">Horizon + StellarExpert</text>
+          <rect x="1040" y="214" width="136" height="44" rx="8" fill="#0a1c2d" stroke="rgba(142,201,255,.45)"/><text x="1052" y="234" fill="#8ec9ff">BASE SEPOLIA</text><text x="1052" y="249" fill="#6f8b95">Blockscout + chain RPC</text>
         </g>
         <!-- the voyage -->
         <path id="lane" d="M240 330 C470 390 720 330 1000 280" fill="none" stroke="rgba(233,242,241,.35)" stroke-width="1.5" stroke-dasharray="6 7"/>
@@ -79,7 +79,7 @@
       <div class="wp"><div class="dot">1</div><b>Open</b><p>The user locks inputs in OIF's settler and asks: pay this amount, to this account, on that chain.</p><small>InputSettlerEscrow.open</small></div>
       <div class="wp"><div class="dot">2</div><b>Pay across</b><p>A solver pays on the far chain. The memo is a hash of the order and the solver itself.</p><small>memoFor(order, solver)</small></div>
       <div class="wp"><div class="dot">3</div><b>Claim</b><p>The solver tells the oracle which transaction filled the order. A hash, nothing else.</p><small>FarshoreOracle.claim</small></div>
-      <div class="wp"><div class="dot">4</div><b>The light</b><p>Validators read that transaction from the chain's own API and agree, in code, on FILLED or NOT_FILLED.</p><small>Farshore.verify</small></div>
+      <div class="wp"><div class="dot">4</div><b>The light</b><p>Validators read that transaction from two independent sources and agree, in code, on FILLED or NOT_FILLED.</p><small>Farshore.verify</small></div>
       <div class="wp"><div class="dot">5</div><b>Paid, or refunded</b><p>The court's call writes OIF's proof; the solver finalises. Unfilled orders refund after expiry.</p><small>finalise / refund</small></div>
     </div>
   </div>

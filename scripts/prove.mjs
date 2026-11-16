@@ -4,6 +4,7 @@
 //   A  Stellar 2.5 XLM. A thief claims the solver's payment as its own   -> NOT_FILLED (the memo names the solver)
 //      the solver claims the same payment                                -> FILLED, the solver finalises on OIF
 //   B  Base Sepolia 0.0001 ETH, paid and claimed by the solver            -> FILLED, the solver finalises on OIF
+//   (every verdict is read from two independent sources per network, which must agree)
 //   C  Stellar 3 XLM, the solver pays 2.9                                 -> NOT_FILLED, the user is refunded after expiry
 //   F  a transaction hash that exists nowhere                             -> no change at first, NOT_FILLED after the grace
 //
@@ -11,7 +12,7 @@
 //
 //   PADV=... PPUB=... PCHG=... node scripts/prove.mjs        (about 25 minutes: C waits for its expiry, F for the grace)
 import { Contract, Interface, AbiCoder, JsonRpcProvider, parseUnits, formatUnits, hexlify, randomBytes, keccak256, solidityPacked } from 'ethers';
-import fs from 'fs'; import path from 'path'; import { fileURLToPath } from 'url';
+import fs from 'fs'; import path from 'path'; import crypto from 'crypto'; import { fileURLToPath } from 'url';
 import { key } from './keys.mjs';
 import { client, reader, EXPLORER } from './net.mjs';
 import { ChainProvider } from '../lib/rpc.mjs';
@@ -144,7 +145,7 @@ Object.assign(proof.orders.A, { thief_round: rounds.thiefA, thief_verdict: rThie
 Object.assign(proof.orders.B, { round: rounds.B, verdict: rB.ruling.verdict, why: rB.ruling.why });
 Object.assign(proof.orders.C, { round: rounds.C, verdict: rC.ruling.verdict, why: rC.ruling.why });
 check('A: a stranger claiming the solver\'s Stellar payment as its own gets NOT_FILLED: the memo names the solver', rThief.round === 'FINALIZED' && rThief.status === 'NotFilled', { note: rThief.ruling.why, tx: rounds.thiefA, gl: true });
-check('B: the Base Sepolia payment is FILLED, read by the court from Blockscout', rB.round === 'FINALIZED' && rB.status === 'Filled' && rB.filledAt > 0, { note: rB.ruling.why, tx: rounds.B, gl: true });
+check('B: the Base Sepolia payment is FILLED, read by the court from Blockscout and the chain RPC', rB.round === 'FINALIZED' && rB.status === 'Filled' && rB.filledAt > 0, { note: rB.ruling.why, tx: rounds.B, gl: true });
 check('C: a payment of 2.9 XLM against an order for 3 is NOT_FILLED', rC.round === 'FINALIZED' && rC.status === 'NotFilled', { note: rC.ruling.why, tx: rounds.C, gl: true });
 check('F: a transaction the network does not show changes nothing inside the grace period', rF.status === 'Claimed' && rF.ruling.exists === false, { note: rF.round, tx: rounds.F, gl: true });
 
@@ -154,7 +155,11 @@ proof.orders.A.claim = honestA;
 const roundA = await ask(honestA.id, stranger);
 const rA = await settled(honestA.id, roundA);
 Object.assign(proof.orders.A, { round: roundA, verdict: rA.ruling.verdict, why: rA.ruling.why });
-check('A: the solver claims the same payment and it is FILLED, read by the court from Horizon', rA.round === 'FINALIZED' && rA.status === 'Filled', { note: rA.ruling.why, tx: roundA, gl: true });
+check('A: the solver claims the same payment and it is FILLED, read by the court from Horizon and StellarExpert', rA.round === 'FINALIZED' && rA.status === 'Filled', { note: rA.ruling.why, tx: roundA, gl: true });
+const evA = crypto.createHash('sha256').update(['stellar-testnet', txA, 'FILLED', String(rA.filledAt), memoA.slice(2), A.out.recipient.slice(2), String(A.out.amount)].join('|')).digest('hex');
+check('A: the ruling names both sources it read, Horizon and StellarExpert, and its evidence digest is recomputed here from the claim and the payment',
+  rA.ruling.evidence === evA && rA.ruling.sources?.[0] === 'https://horizon-testnet.stellar.org' && rA.ruling.sources?.[1] === 'https://api.stellar.expert/explorer/testnet', { note: 'evidence ' + evA.slice(0, 16) });
+check('B: the Base Sepolia ruling names Blockscout and the chain RPC', rB.ruling.sources?.[0] === 'https://base-sepolia.blockscout.com' && rB.ruling.sources?.[1] === 'https://sepolia.base.org');
 const fillA = keccak256(solidityPacked(['bytes32', 'bytes32', 'uint32', 'bytes32', 'uint256', 'bytes32', 'uint16', 'uint16'], [solverId, A.orderId, rA.filledAt, A.out.token, A.out.amount, A.out.recipient, 0, 0]));
 check('The court\'s own call wrote OIF\'s attestation: isProven holds for A\'s fill description', await oracleAs(p).isProven(4221, ident(dep.oracle.address), ident(dep.oracle.address), fillA));
 await refused('A filled payment cannot be claimed again, for any order', () => oracleAs(solver).claim.staticCall(C.orderId, outputTuple(C.out), '0x' + txA), 'Farshore:tx-used');
